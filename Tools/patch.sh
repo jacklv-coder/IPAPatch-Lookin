@@ -46,6 +46,16 @@ TARGET_APP_PATH="" # To be found in Step 3
 TARGET_APP_CONTENTS_PATH="" # To be found in Step 3
 TARGET_APP_FRAMEWORKS_PATH="" # To be found in Step 5
 
+NormalizeLoadCommand () {
+    binary_path=$1
+    load_path=$2
+
+    if ! /usr/bin/ruby "${SRCROOT}/Tools/normalize_load_command.rb" "$binary_path" "$load_path"; then
+        echo "error: Failed to normalize Mach-O load command: $load_path" >&2
+        exit 1
+    fi
+}
+
 
 # ---------------------------------------------------
 # 0. Prepare Working Enviroment
@@ -67,6 +77,12 @@ echo "IGNORE_UI_SUPPORTED_DEVICES: $IGNORE_UI_SUPPORTED_DEVICES"
 
 TARGET_BUNDLE_ID="$PRODUCT_BUNDLE_IDENTIFIER"
 echo "TARGET_BUNDLE_ID: $TARGET_BUNDLE_ID"
+
+if [ "$PLATFORM" != "Mac" ] && [ ! -s "$TARGET_IPA_PATH" ]; then
+    echo "error: Missing decrypted IPA at $TARGET_IPA_PATH" >&2
+    echo "Copy your IPA to Assets/app.ipa before building IPAPatch-DummyApp." >&2
+    exit 1
+fi
 
 
 # ---------------------------------------------------
@@ -180,7 +196,7 @@ then
 fi
 OPTOOL="${SRCROOT}/Tools/optool"
 
-mkdir "$TARGET_APP_CONTENTS_PATH/Dylibs"
+mkdir -p "$TARGET_APP_CONTENTS_PATH/Dylibs"
 if [ $PLATFORM = "Mac" ]
 then
     cp "$BUILT_PRODUCTS_DIR/IPAPatchFrameworkMac.framework/IPAPatchFrameworkMac" "$TARGET_APP_CONTENTS_PATH/Dylibs/IPAPatchFramework"
@@ -199,6 +215,7 @@ for file in `ls -1 "$TARGET_APP_CONTENTS_PATH/Dylibs"`; do
     
     echo "Install Load: $file -> $FRAMEWORK_LOAD_PATH"
     "$OPTOOL" install -c load -p "$FRAMEWORK_LOAD_PATH" -t "$TARGET_APP_CONTENTS_PATH/$APP_BINARY"
+    NormalizeLoadCommand "$TARGET_APP_CONTENTS_PATH/$APP_BINARY" "$FRAMEWORK_LOAD_PATH"
 done
 
 chmod +x "$TARGET_APP_CONTENTS_PATH/$APP_BINARY"
@@ -254,6 +271,7 @@ for file in `ls -1 "${FRAMEWORKS_TO_INJECT_PATH}"`; do
     echo "Install Load: $file -> @executable_path/Frameworks/$file/$filename"
 
     "$OPTOOL" install -c load -p "@executable_path/Frameworks/$file/$filename" -t "$TARGET_APP_CONTENTS_PATH/$APP_BINARY"
+    NormalizeLoadCommand "$TARGET_APP_CONTENTS_PATH/$APP_BINARY" "@executable_path/Frameworks/$file/$filename"
 
     CopySwiftStdLib "$TARGET_APP_FRAMEWORKS_PATH/$file/$filename" "$TARGET_APP_FRAMEWORKS_PATH"
 done
@@ -270,8 +288,9 @@ for file in `ls -1 "${DYLIBS_TO_INJECT_PATH}"`; do
 
     echo -n '     '
 	echo "Install Load: $file -> @executable_path/Dylibs/$filename"
-	
+
     "$OPTOOL" install -c load -p "@executable_path/Dylibs/$filename" -t "$TARGET_APP_CONTENTS_PATH/$APP_BINARY"
+    NormalizeLoadCommand "$TARGET_APP_CONTENTS_PATH/$APP_BINARY" "@executable_path/Dylibs/$filename"
 
     CopySwiftStdLib "$TARGET_APP_CONTENTS_PATH/Dylibs/$filename" "$TARGET_APP_FRAMEWORKS_PATH"
 done
@@ -314,6 +333,11 @@ fi
 
 # ---------------------------------------------------
 # 8. Code Sign All The Things
+
+if [ "$CODE_SIGNING_ALLOWED" = "NO" ] || [ -z "$EXPANDED_CODE_SIGN_IDENTITY" ]; then
+    echo "Skipping code signing for local patch verification"
+    echo "A signed device build still requires an Apple ID, development team, and provisioning profile in Xcode."
+else
 
 if [ "$USE_ORIGINAL_ENTITLEMENTS" = true ]; then
 ENTITLEMENTS="$TEMP_PATH/entitlements.xcent"
@@ -431,6 +455,8 @@ else
     fi
 fi
 
+fi
+
 
 
 
@@ -440,4 +466,3 @@ fi
 #
 #    Nothing To Do, Xcode Will Automatically Install the DummyApp We Overwrited
 echo "Done"
-

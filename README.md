@@ -1,203 +1,141 @@
-![IPAPatch Logo](http://wx1.sinaimg.cn/large/bebedbb5ly1fdrgg0v1hjj20e205qdgi.jpg)
+# IPAPatch-Lookin
 
-IPAPatch provide a simple way to patch iOS Apps, without needing to jailbreak.
+Inject [LookinServer](https://github.com/QMUI/LookinServer) into a decrypted
+iOS app, re-sign it with Xcode, and inspect its live view hierarchy on a real
+device.
 
-[ [Features](#features) &bull; [Instructions](#instructions) &bull; [Example](#example) &bull; [FAQ](#faq) &bull; [License](#license) ]
+This project is based on [Naituw/IPAPatch](https://github.com/Naituw/IPAPatch).
+The original README is preserved in [README_UPSTREAM.md](README_UPSTREAM.md).
 
-## Features
+> Use this project only with applications you own or are authorized to inspect.
+> No IPA files, signing certificates, or provisioning profiles are included.
 
-**IPAPatch** includes an template Xcode project, that provides following features:
+## What this fork adds
 
-- **Build & Run third-party ipa with your code injected**
+- LookinServer `1.2.8` linked into Debug builds of the injected
+  `IPAPatchFramework` (Release and Archive builds exclude the inspection server)
+- Xcode 26-compatible CocoaPods and deployment settings
+- standard `LC_LOAD_DYLIB` normalization for the bundled legacy `optool`
+- optional App Group and `UserDefaults` redirection into the patched app sandbox
+- configurable forced boolean defaults for disabling unavailable cloud features
+- unsigned generic-device builds for static verification
+- a verification script for the injection and LookinServer linkage
 
-  You can run your own code inside ipa file as a dynamic library. So you can change behavior of that app by utilizing Objective-C runtime.
-  
-  > *Presented an custom alert in Youtube app*
-  >
-  > <a href="https://github.com/user-attachments/assets/f0d5ec82-857e-415d-b3c8-688b78cfdca4" target="_blank"><img src="https://github.com/user-attachments/assets/f0d5ec82-857e-415d-b3c8-688b78cfdca4" alt="Youtube Hacked" style="max-width:100%;" width="360px"></a>
-  
-- **Step-by-step Debugging with lldb**
+The original app remains an `MH_EXECUTE` Mach-O. IPAPatch compiles a small
+dynamic library, copies it to `Dylibs/IPAPatchFramework`, inserts a load command
+into the original executable, and re-signs the resulting app bundle.
 
-  You can debug third-party apps like your own. For example:
-    
-   - Step-by-Step debug your code inside other app
-   - Set Breakpoints
-   - Print objects in Xcode console with lldb
-   <br/>
-   
-    > *Debugging Youtube with Xcode*
-    >
-    > <a href="https://github.com/user-attachments/assets/7927b4f2-097a-4c10-b222-c5b1edac3032" target="_blank"><img src="https://github.com/user-attachments/assets/7927b4f2-097a-4c10-b222-c5b1edac3032" alt="Youtube Debugging" style="max-width:100%;" width="360px"></a>
-    
+## Requirements
 
-- **Link external frameworks**
+- macOS with Xcode
+- Ruby 3.2 or newer and Bundler `4.0.16` (Homebrew Ruby is recommended)
+- CocoaPods through Bundler
+- a real iPhone or iPad with Developer Mode enabled
+- an Apple development team for signing
+- a decrypted IPA (`cryptid = 0`)
+- the Lookin macOS app
 
-  By linking existing frameworks, you can integrate third-party services to apps very easily, such as Reveal.
-  
-  > *Inspect Youtube by linking RevealServer.framework*
-  >
-  > <a href="https://github.com/user-attachments/assets/4feb3613-a110-4208-b2b3-ba173bda81fb" target="_blank"><img src="https://github.com/user-attachments/assets/4feb3613-a110-4208-b2b3-ba173bda81fb" alt="Youtube Integrated Reveal" style="max-width:100%;" width="540px"></a>
+App Store IPAs normally contain iPhoneOS arm64 code and cannot run in the iOS
+Simulator.
 
-- **Generate distributable .ipa files**
+The project currently targets iOS 15.0. Lower it in both the project and
+`Podfile` if the authorized app or test device requires an older deployment
+target.
 
-  You can distribute your patch/work to your friends very easily, with IPAPatch generated modified version of .ipa files
+## Setup
 
-    > *Modified version of Facebook.ipa created by IPAPatch*
-    > 
-    > ![687474703a2f2f7778312e73696e61696d672e636e2f6c617267652f62656265646262356c7931666979617775357133366a32306774303766676d722e6a7067](https://github.com/user-attachments/assets/622c290b-228c-4bb8-8cbd-f5728e77eb7d)
+Install a current Ruby, activate the pinned Bundler version, and generate the
+workspace. On a Homebrew-based setup:
 
-## Instructions
+```sh
+brew install ruby
+export PATH="$(brew --prefix ruby)/bin:$PATH"
+gem install bundler -v 4.0.16
+bundle _4.0.16_ config set path Vendor/bundle
+bundle _4.0.16_ install
+bundle _4.0.16_ exec pod install
+```
 
-1. **Clone or Download This Project**
-   
-   Download this project to your local disk
-   
-2. **Prepare Decrypted IPA File**
-  
-   The IPA file you use need to be decrypted, you can get a decrypted ipa from a jailbroken device or download it directly from an ipa download site, such as http://www.iphonecake.com
-  
-3. **Replace Placeholder IPA**
+Apple's system Ruby 2.6 is not supported by the locked dependency set.
 
-   Replace the IPA file located at `IPAPatch/Assets/app.ipa` with yours, this is a placeholder file. The filename should remain `app.ipa` after replacing.
-  
-4. **Place External Resources/Frameworks (Optional)**
-   
-   Follow types of external file are supported:
-   - **Frameworks**: 
-     - External frameworks can be placed at `IPAPatch/Assets/Frameworks` folder. 
-     - Frameworks will be linked automatically.     
-     - For example `IPAPatch/Assets/Frameworks/RevealServer.framework`
-   - **Dynamic Libraries**: 
-     - External dynamic libraries can be placed at `IPAPatch/Assets/Dylibs` folder. 
-     - Libraries will be linked automatically
-   - **Resources/Bundles**: 
-     - Other resources or bundles can be placed at `IPAPatch/Assets/Resources`
-     - Resources will be copied directly to the main bundle of original app
-  
-5. **Configure Build Settings**
+Then:
 
-   - Open `IPAPatch.xcodeproj`
-   - In the Project Editor, Select Target `IPAPatch-DummyApp`
-   - `Display Name` defaults to "💊", this is used as prefix of the final display name.
-   - Change `Bundle Identifier` to match your provisioning profiles
-   - Fix signing issues if any.
+1. Copy your authorized decrypted IPA to `Assets/app.ipa`.
+2. Open `IPAPatch.xcworkspace`.
+3. Select the `IPAPatch-DummyApp` target.
+4. Choose your development team and set a unique bundle identifier.
+5. Select a connected real device and press `Cmd + R`.
+6. Launch Lookin on the Mac and select the running patched app.
 
-6. **Configure IPPatch Options**
+The patched app display name is prefixed with `🔬 ` so it is easy to distinguish
+from the original installation.
 
-   - You can config IPAPatch's behavior with `Tools/options.plist`
-   
-        | Name | Description | Default |
-        | --- | --- | --- |
-        | RESTORE_SYMBOLS  | When `YES`, IPAPatch will try to restore symbol table from Mach-O for debugging propose (with tools from https://github.com/tobefuturer/restore-symbol, also thanks to @henrayluo and @dannion) | NO |
-        | CREATE_IPA_FILE | When `YES`, IPAPatch will generate a ipa file on each build. Genrated file is located at `SRCROOT/Product` | NO |
-        | IGNORE_UI_SUPPORTED_DEVICES | When `YES`, IPAPatch will delete `UISupportedDevices` from source app's `Info.plist` | NO |
-        | REMOVE_WATCHPLACEHOLDER | When `YES`, IPAPatch will remove `com.apple.WatchPlaceholder` folder from source app's bundle | YES |
-        | USE_ORIGINAL_ENTITLEMENTS | When `YES`, IPAPatch will use source app's entitlements to resign, you need to make sure your Provisioning Profile matches the entitlements, or you need to disable `AMFI` on target device | NO |
+## Analysis configuration
 
-7. **Code Your Patch**
+Edit `Assets/Resources/IPAPatchLookinConfig.plist` before building:
 
-   The entry is at `+[IPAPatchEntry load]`, you can write code start from here. To change apps' behavior, You may need to use some method swizzling library, such as [steipete/Aspects](https://github.com/steipete/Aspects).
+```xml
+<key>AppGroupRedirects</key>
+<dict>
+    <key>group.vendor.original</key>
+    <string>IPAPatchLookinAppGroup</string>
+</dict>
+<key>RedirectUserDefaultsSuites</key>
+<true/>
+<key>ForcedBooleanDefaults</key>
+<dict>
+    <key>CloudFeatureRestricted</key>
+    <true/>
+</dict>
+```
 
-8. **Build and Run**
+`AppGroupRedirects` maps an App Group identifier owned by the original
+developer to a directory under the patched app's own `Library` directory. When
+`RedirectUserDefaultsSuites` is enabled, matching `NSUserDefaults` suites use
+the patched app's standard defaults instead.
 
-   Select a real device, and hit the "Run" button at the top-left corner of Xcode. The code your wrote and external frameworks you placed will inject to the ipa file automatically.
+This is intended for UI analysis when extensions and cross-process sharing are
+not required. It does not grant the patched app the original developer's
+entitlements.
 
-## Example
+## Verification
 
-I created some demo project, which shows you how to use `IPAPatch`:
+Build without signing when you only need to verify the patch structure:
 
-- Reveal + Youtube: 
-  - https://github.com/Naituw/IPAPatch/releases/tag/1.0
-- Cycript + Youtube (Idea from @phpmaple): 
-  - https://github.com/Naituw/IPAPatch/releases/tag/1.0.1
+```sh
+xcodebuild \
+  -workspace IPAPatch.xcworkspace \
+  -scheme IPAPatch-DummyApp \
+  -configuration Debug \
+  -destination 'generic/platform=iOS' \
+  -derivedDataPath /tmp/ipapatch-lookin-dd \
+  CODE_SIGNING_ALLOWED=NO \
+  build
 
-## FAQ
+Tools/verify_patch.sh \
+  /tmp/ipapatch-lookin-dd/Build/Products/Debug-iphoneos/IPAPatch-DummyApp.app
+```
 
-- Q: Library not loaded with reason: `mach-o, but wrong architecture` ?
-  - A: Try set `IPAPatch` target's `Valid Architectures` to match your ipa binary's architecture.
+Expected runtime logs include:
 
-- Q: process launch failed: Unspecified (Disabled) ?
-  - A: The ipa file use with IPAPatch must be decrypted, See step.2 of Instructions.
+```text
+LookinServer - Will launch. Framework version: 1.2.8
+[IPAPatch-Lookin] LookinServer loaded
+```
 
-- Q: dyld: Symbol not found: XXX, Referenced from: XXX, Expected in: XXX/libswiftXXX.dylib
-  - The swift version the framework you injecting use, is incompatible with the version of your Xcode
+Configured compatibility redirects also emit an
+`[IPAPatch-Lookin] Redirected ...` message.
 
-## License
+## Entitlement limitations
 
-#### IPAPatch
+Re-signing does not transfer the original team's App Groups, CloudKit
+containers, push environment, associated domains, Sign in with Apple, or
+keychain groups. Configure only the compatibility redirects needed for
+authorized analysis, and expect unrelated online SDK features to remain
+unavailable.
 
-    IPAPatch is licensed under the MIT license.
-      
-    Copyright (c) 2017-present Wu Tian <wutian@me.com>.
-      
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-      
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-      
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-    THE SOFTWARE.
+## License and attribution
 
-
-#### OPTOOL
-
-    Copyright (c) 2014, Alex Zielenski
-    All rights reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions are met:
-
-    * Redistributions of source code must retain the above copyright notice, this
-      list of conditions and the following disclaimer.
-
-    * Redistributions in binary form must reproduce the above copyright notice,
-      this list of conditions and the following disclaimer in the documentation
-      and/or other materials provided with the distribution.
-
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-    DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-    FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-    DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-    SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-    OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-
-#### fishhook
-
-	Copyright (c) 2013, Facebook, Inc.
-	All rights reserved.
-	Redistribution and use in source and binary forms, with or without
-	modification, are permitted provided that the following conditions are met:
-	  * Redistributions of source code must retain the above copyright notice,
-	    this list of conditions and the following disclaimer.
-	  * Redistributions in binary form must reproduce the above copyright notice,
-	    this list of conditions and the following disclaimer in the documentation
-	    and/or other materials provided with the distribution.
-	  * Neither the name Facebook nor the names of its contributors may be used to
-	    endorse or promote products derived from this software without specific
-	    prior written permission.
-	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-	AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-	IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-	DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-	FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-	DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-	SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-	CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-	OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-	OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+IPAPatch-Lookin retains the original IPAPatch copyright and MIT license. See
+[LICENSE](LICENSE) and [README_UPSTREAM.md](README_UPSTREAM.md) for upstream
+attribution and third-party license notices.

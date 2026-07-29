@@ -2,6 +2,11 @@
 
 Temp/
 Product/
+/Assets/app.ipa
+/.bundle/
+/IPAPatch.xcworkspace/
+/Pods/
+/Vendor/bundle/
 
 .DS_Store
 
