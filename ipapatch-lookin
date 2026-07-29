@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -eu
+
+PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+export IPAPATCH_PROJECT_ROOT="$PROJECT_ROOT"
+
+exec /usr/bin/xcrun swift run \
+    --quiet \
+    --package-path "$PROJECT_ROOT" \
+    ipapatch-lookin \
+    "$@"

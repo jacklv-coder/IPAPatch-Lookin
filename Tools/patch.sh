@@ -27,14 +27,16 @@
 
 PLATFORM="$1"
 
-TEMP_PATH="${SRCROOT}/Temp"
+TEMP_PATH="${TARGET_TEMP_DIR:-${SRCROOT}/Temp}/IPAPatchWork"
 OPTIONS_PATH="${SRCROOT}/Tools/options.plist"
 ASSETS_PATH="${SRCROOT}/Assets"
-TARGET_IPA_PATH="${ASSETS_PATH}/app.ipa"
+TARGET_IPA_PATH="${IPAPATCH_INPUT_IPA:-${ASSETS_PATH}/app.ipa}"
 TARGET_MAC_APP_PATH="${ASSETS_PATH}/macapp.app"
 FRAMEWORKS_TO_INJECT_PATH="${ASSETS_PATH}/Frameworks"
 RESOURCES_TO_INJECT_PATH="${ASSETS_PATH}/Resources"
 DYLIBS_TO_INJECT_PATH="${ASSETS_PATH}/Dylibs"
+MACHO_NORMALIZER="${DERIVED_FILE_DIR:-${TEMP_PATH}}/ipapatch-macho-normalizer"
+SWIFT_PLATFORM_DIRECTORY="${PLATFORM_NAME:-iphoneos}"
 
 DUMMY_DISPLAY_NAME="" # To be found in Step 0
 TARGET_BUNDLE_ID="" # To be found in Step 0
@@ -50,9 +52,34 @@ NormalizeLoadCommand () {
     binary_path=$1
     load_path=$2
 
-    if ! /usr/bin/ruby "${SRCROOT}/Tools/normalize_load_command.rb" "$binary_path" "$load_path"; then
+    if ! "$MACHO_NORMALIZER" "$binary_path" "$load_path"; then
         echo "error: Failed to normalize Mach-O load command: $load_path" >&2
         exit 1
+    fi
+}
+
+BuildMachONormalizer () {
+    core_source="${SRCROOT}/Sources/IPAPatchLookinCore/MachOFile.swift"
+    main_source="${SRCROOT}/Tools/MachONormalizerMain.swift"
+
+    if [ ! -x "$MACHO_NORMALIZER" ] \
+        || [ "$core_source" -nt "$MACHO_NORMALIZER" ] \
+        || [ "$main_source" -nt "$MACHO_NORMALIZER" ]; then
+        echo "Building Swift Mach-O normalizer"
+        mkdir -p "$(dirname "$MACHO_NORMALIZER")"
+        normalizer_sdk=$(/usr/bin/xcrun --sdk macosx --show-sdk-path)
+        normalizer_arch=$(/usr/bin/uname -m)
+        if ! /usr/bin/xcrun --sdk macosx swiftc \
+            -O \
+            -parse-as-library \
+            -sdk "$normalizer_sdk" \
+            -target "${normalizer_arch}-apple-macos13.0" \
+            "$core_source" \
+            "$main_source" \
+            -o "$MACHO_NORMALIZER"; then
+            echo "error: Failed to build the Swift Mach-O normalizer" >&2
+            exit 1
+        fi
     fi
 }
 
@@ -80,9 +107,11 @@ echo "TARGET_BUNDLE_ID: $TARGET_BUNDLE_ID"
 
 if [ "$PLATFORM" != "Mac" ] && [ ! -s "$TARGET_IPA_PATH" ]; then
     echo "error: Missing decrypted IPA at $TARGET_IPA_PATH" >&2
-    echo "Copy your IPA to Assets/app.ipa before building IPAPatch-DummyApp." >&2
+    echo "Run ./ipapatch-lookin run /path/to/app.ipa, or place one IPA in Input/." >&2
     exit 1
 fi
+
+BuildMachONormalizer
 
 
 # ---------------------------------------------------
@@ -236,7 +265,7 @@ CopySwiftStdLib () {
 			if [[ $line =~ $re ]]; then
 				LIBNAME=${BASH_REMATCH[1]};
 				if ! [ -e "$target_dir/$LIBNAME" ]; then
-					LIB_SOURCE_PATH="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphoneos/${LIBNAME}"
+					LIB_SOURCE_PATH="${TOOLCHAIN_DIR}/usr/lib/swift/${SWIFT_PLATFORM_DIRECTORY}/${LIBNAME}"
 					if [ -e $LIB_SOURCE_PATH ]; then
 						echo "Copying $LIBNAME: $LIB_SOURCE_PATH"
 						cp -rf "$LIB_SOURCE_PATH" "$target_dir"
@@ -345,7 +374,7 @@ codesign -d --entitlements :- "$TARGET_APP_PATH" > "$ENTITLEMENTS"
 fi
 
 # 8.1 Embed Provisioning Profile (Required for iOS device installation)
-if [ $PLATFORM != "Mac" ]; then
+if [ $PLATFORM != "Mac" ] && [ "${EFFECTIVE_PLATFORM_NAME:-}" != "-iphonesimulator" ]; then
     echo "Embedding Provisioning Profile"
     
     # Try to find the provisioning profile from Xcode build settings

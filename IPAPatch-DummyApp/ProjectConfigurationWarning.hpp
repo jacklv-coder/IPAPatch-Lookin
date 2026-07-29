@@ -29,13 +29,11 @@ constexpr bool strings_equal(char const * a, char const * b) {
 
 static_assert(!strings_equal(TARGET_BUNDLE_ID_STRING, "com.wutian.example"), "You should update the BundleID in Build Settings before patching");
 
+#if !TARGET_OS_SIMULATOR
 static_assert(!strings_equal(CODE_SIGN_IDENTITY_STRING, "-"), "You should set valid codesign team in Build Settings before patching");
+#endif
 
 // ⚠️ Note: "com.wutian.example" is placeholder bundleID for the result app, you should change it to your own and fixes the signing issues (if any), in the "IPAPatch-DummyApp - Project - General tab"
 // ⚠️ Note: The BundleDisplayName of DummyApp will used as prefix of the final name.
-
-#if TARGET_OS_SIMULATOR
-#error Simulators is not supported, Please select a real device from Xcode toolbar.
-#endif
 
 #endif /* ProjectConfigurationWarning_hpp */

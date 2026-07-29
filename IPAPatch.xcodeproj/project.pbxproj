@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -22,7 +22,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		642B68A4784BEB99D65BA633 /* Pods_IPAPatchFramework.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 66135C63B7113ECDAEE8931C /* Pods_IPAPatchFramework.framework */; };
+		A10000000000000000000001 /* LookinServer in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000003 /* LookinServer */; };
 		C63AC1A51E838BB70094B1C5 /* fishhook.c in Sources */ = {isa = PBXBuildFile; fileRef = C63AC1A21E838BB70094B1C5 /* fishhook.c */; };
 		C63AC1A61E838BB70094B1C5 /* fishhook.h in Headers */ = {isa = PBXBuildFile; fileRef = C63AC1A31E838BB70094B1C5 /* fishhook.h */; };
 		C63AC1AA1E8392210094B1C5 /* IPAPatchBypassAntiDebugging.h in Headers */ = {isa = PBXBuildFile; fileRef = C63AC1A81E8392210094B1C5 /* IPAPatchBypassAntiDebugging.h */; };
@@ -67,9 +67,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		4417F1C0D8F1157C94516323 /* Pods-IPAPatchFramework.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IPAPatchFramework.release.xcconfig"; path = "Target Support Files/Pods-IPAPatchFramework/Pods-IPAPatchFramework.release.xcconfig"; sourceTree = "<group>"; };
-		66135C63B7113ECDAEE8931C /* Pods_IPAPatchFramework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_IPAPatchFramework.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		94B5928119467B8C04F6A79B /* Pods-IPAPatchFramework.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IPAPatchFramework.debug.xcconfig"; path = "Target Support Files/Pods-IPAPatchFramework/Pods-IPAPatchFramework.debug.xcconfig"; sourceTree = "<group>"; };
 		C63AC1A21E838BB70094B1C5 /* fishhook.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fishhook.c; sourceTree = "<group>"; };
 		C63AC1A31E838BB70094B1C5 /* fishhook.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fishhook.h; sourceTree = "<group>"; };
 		C63AC1A41E838BB70094B1C5 /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
@@ -116,7 +113,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				642B68A4784BEB99D65BA633 /* Pods_IPAPatchFramework.framework in Frameworks */,
+				A10000000000000000000001 /* LookinServer in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -130,24 +127,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		0435B6EFEF42BDFA67AE4DD7 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				94B5928119467B8C04F6A79B /* Pods-IPAPatchFramework.debug.xcconfig */,
-				4417F1C0D8F1157C94516323 /* Pods-IPAPatchFramework.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
-			sourceTree = "<group>";
-		};
-		93F20945AF933656CED84284 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				66135C63B7113ECDAEE8931C /* Pods_IPAPatchFramework.framework */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		C63AC1A01E838B8E0094B1C5 /* Vendors */ = {
 			isa = PBXGroup;
 			children = (
@@ -193,8 +172,6 @@
 				C698B9F52986148600BB5DC9 /* IPAPatch-MacDummyApp */,
 				C698BA1129861E8B00BB5DC9 /* IPAPatchFrameworkMac */,
 				C6B263081E7BC97B009B4DEA /* Products */,
-				0435B6EFEF42BDFA67AE4DD7 /* Pods */,
-				93F20945AF933656CED84284 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -318,7 +295,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C6B2631B1E7BC97B009B4DEA /* Build configuration list for PBXNativeTarget "IPAPatchFramework" */;
 			buildPhases = (
-				55931D75976511CE462B0CC3 /* [CP] Check Pods Manifest.lock */,
 				C6B263021E7BC97B009B4DEA /* Sources */,
 				C6B263031E7BC97B009B4DEA /* Frameworks */,
 				C6B263041E7BC97B009B4DEA /* Headers */,
@@ -329,6 +305,9 @@
 			dependencies = (
 			);
 			name = IPAPatchFramework;
+			packageProductDependencies = (
+				A10000000000000000000003 /* LookinServer */,
+			);
 			productName = IPAPatch;
 			productReference = C6B263071E7BC97B009B4DEA /* IPAPatchFramework.framework */;
 			productType = "com.apple.product-type.framework";
@@ -393,6 +372,9 @@
 				Base,
 			);
 			mainGroup = C6B262FD1E7BC97B009B4DEA;
+			packageReferences = (
+				A10000000000000000000002 /* XCRemoteSwiftPackageReference "LookinServer" */,
+			);
 			productRefGroup = C6B263081E7BC97B009B4DEA /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -439,30 +421,9 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		55931D75976511CE462B0CC3 /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-IPAPatchFramework-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
 		C698BA09298614FC00BB5DC9 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -480,6 +441,7 @@
 		};
 		C6B263631E7BD0B4009B4DEA /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -840,7 +802,6 @@
 		};
 		C6B2631C1E7BC97B009B4DEA /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 94B5928119467B8C04F6A79B /* Pods-IPAPatchFramework.debug.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
@@ -855,6 +816,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = "$(inherited) -ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.ipapatchlookin.framework;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -863,7 +825,6 @@
 		};
 		C6B2631D1E7BC97B009B4DEA /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 4417F1C0D8F1157C94516323 /* Pods-IPAPatchFramework.release.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
@@ -877,6 +838,7 @@
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				OTHER_LDFLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.ipapatchlookin.framework;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1005,6 +967,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A10000000000000000000002 /* XCRemoteSwiftPackageReference "LookinServer" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/QMUI/LookinServer";
+			requirement = {
+				kind = exactVersion;
+				version = 1.2.8;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000000000000000000003 /* LookinServer */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000002 /* XCRemoteSwiftPackageReference "LookinServer" */;
+			productName = LookinServer;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C6B262FE1E7BC97B009B4DEA /* Project object */;
 }

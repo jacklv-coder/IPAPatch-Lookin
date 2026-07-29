@@ -3,6 +3,13 @@
 Temp/
 Product/
 /Assets/app.ipa
+/.ipapatch-lookin.json
+/.build/
+/.swiftpm/
+/Input/*
+!/Input/.gitkeep
+
+# Legacy dependency artifacts from older revisions
 /.bundle/
 /IPAPatch.xcworkspace/
 /Pods/
@@ -38,14 +45,6 @@ xcuserdata/
 *.hmap
 *.dSYM.zip
 *.dSYM
-
-# CocoaPods
-#
-# We recommend against adding the Pods directory to your .gitignore. However
-# you should judge for yourself, the pros and cons are mentioned at:
-# https://guides.cocoapods.org/using/using-cocoapods.html#should-i-check-the-pods-directory-into-source-control
-#
-# Pods/
 
 # Carthage
 #
