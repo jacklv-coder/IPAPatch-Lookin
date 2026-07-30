@@ -3,12 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>AppGroupRedirects</key>
-	<dict>
-		<key>group.com.google.YouTube</key>
-		<string>IPAPatchLookinYouTube</string>
-		<key>group.com.google.common</key>
-		<string>IPAPatchLookinGoogleCommon</string>
-	</dict>
+	<dict/>
 	<key>ForcedBooleanDefaults</key>
 	<dict/>
 	<key>RedirectUserDefaultsSuites</key>

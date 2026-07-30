@@ -179,8 +179,14 @@ having embedded Swift runtime dylibs.
 
 ## Analysis compatibility configuration
 
-Edit `Assets/Resources/IPAPatchLookinConfig.plist` when the original app expects
-App Groups or cloud-related defaults that are unavailable after re-signing:
+On every build, the patch script reads
+`com.apple.security.application-groups` from the input app's code-signing
+entitlements and generates sandbox-local redirects in the built app. The
+repository therefore does not contain identifiers belonging to a particular
+vendor.
+
+You can still edit `Assets/Resources/IPAPatchLookinConfig.plist` to override a
+generated App Group destination or configure app-specific defaults:
 
 ```xml
 <key>AppGroupRedirects</key>
@@ -198,7 +204,8 @@ App Groups or cloud-related defaults that are unavailable after re-signing:
 ```
 
 These redirects help authorized UI analysis but do not grant the patched app
-the original developer's entitlements.
+the original developer's entitlements. Manually configured mappings take
+precedence over generated mappings.
 
 ## Troubleshooting
 
@@ -243,10 +250,12 @@ bundle identifier and is not affected.
 ### App Group entitlement warnings
 
 Messages such as `client is not entitled` are expected when the original app
-accesses App Groups owned by its vendor. They do not by themselves prove that
-the app crashed. Add the required group identifiers to
-`Assets/Resources/IPAPatchLookinConfig.plist` as described above when the
-affected code path needs a sandbox-local substitute.
+accesses capabilities owned by its vendor. They do not by themselves prove
+that the app crashed. App Group identifiers are redirected automatically when
+they are present in the input IPA's code-signing entitlements. If the decrypted
+export no longer contains readable entitlements, add only the required group
+identifiers to `Assets/Resources/IPAPatchLookinConfig.plist` as described
+above.
 
 `LookinServer - Will launch` confirms that the injected framework started.
 

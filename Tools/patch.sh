@@ -67,6 +67,7 @@ TEMP_APP_PATH=""   # To be found in Step 1
 TARGET_APP_PATH="" # To be found in Step 3
 TARGET_APP_CONTENTS_PATH="" # To be found in Step 3
 TARGET_APP_FRAMEWORKS_PATH="" # To be found in Step 5
+ORIGINAL_ENTITLEMENTS_PATH="${TEMP_PATH}/original-entitlements.plist"
 
 NormalizeLoadCommand () {
     binary_path=$1
@@ -101,6 +102,60 @@ BuildMachONormalizer () {
             exit 1
         fi
     fi
+}
+
+ConfigureAppGroupRedirects () {
+    if [ "$PLATFORM" = "Mac" ] || [ ! -f "$ORIGINAL_ENTITLEMENTS_PATH" ]; then
+        return
+    fi
+
+    configuration_path="$TARGET_APP_CONTENTS_PATH/IPAPatchLookinConfig.plist"
+    if [ ! -f "$configuration_path" ]; then
+        echo "warning: IPAPatchLookinConfig.plist is missing; App Group redirects were not generated." >&2
+        return
+    fi
+
+    app_groups_key_path='com\.apple\.security\.application-groups'
+    if [ "$(/usr/bin/plutil -type "$app_groups_key_path" "$ORIGINAL_ENTITLEMENTS_PATH" 2>/dev/null)" != "array" ]; then
+        echo "No App Group entitlements found"
+        return
+    fi
+
+    if [ "$(/usr/bin/plutil -type AppGroupRedirects "$configuration_path" 2>/dev/null)" != "dictionary" ]; then
+        /usr/bin/plutil -replace AppGroupRedirects -dictionary "$configuration_path"
+    fi
+
+    app_group_count=$(
+        /usr/bin/plutil -extract "$app_groups_key_path" raw -o - \
+            "$ORIGINAL_ENTITLEMENTS_PATH"
+    )
+    app_group_index=0
+    while [ "$app_group_index" -lt "$app_group_count" ]; do
+        app_group_identifier=$(
+            /usr/bin/plutil -extract "${app_groups_key_path}.${app_group_index}" raw -o - \
+                "$ORIGINAL_ENTITLEMENTS_PATH"
+        )
+        escaped_app_group_identifier=$(
+            printf '%s' "$app_group_identifier" | /usr/bin/sed 's/\./\\./g'
+        )
+
+        if ! /usr/bin/plutil \
+            -extract "AppGroupRedirects.${escaped_app_group_identifier}" raw -o - \
+            "$configuration_path" >/dev/null 2>&1; then
+            app_group_digest=$(
+                printf '%s' "$app_group_identifier" \
+                    | /usr/bin/shasum -a 256 \
+                    | /usr/bin/awk '{print substr($1, 1, 16)}'
+            )
+            /usr/bin/plutil \
+                -insert "AppGroupRedirects.${escaped_app_group_identifier}" \
+                -string "IPAPatchLookinAppGroup-${app_group_digest}" \
+                "$configuration_path"
+        fi
+
+        echo "Configured sandbox redirect for App Group: $app_group_identifier"
+        app_group_index=$((app_group_index + 1))
+    done
 }
 
 # ---------------------------------------------------
@@ -148,6 +203,17 @@ else
 fi
     
 echo "TEMP_APP_PATH: $TEMP_APP_PATH"
+
+if [ "$PLATFORM" != "Mac" ]; then
+    if /usr/bin/codesign -d --entitlements :- "$TEMP_APP_PATH" \
+        > "$ORIGINAL_ENTITLEMENTS_PATH" 2>/dev/null \
+        && /usr/bin/plutil -lint "$ORIGINAL_ENTITLEMENTS_PATH" >/dev/null 2>&1; then
+        echo "Read original app entitlements"
+    else
+        echo "warning: The original app has no readable code-signing entitlements." >&2
+        echo "App Group redirects can still be added manually in IPAPatchLookinConfig.plist." >&2
+    fi
+fi
 
 # ---------------------------------------------------
 # 2 restore symbol and integrate to Mach-O File
@@ -346,6 +412,8 @@ done
 # 5-3. Inject External Resources if Exists
 echo "Injecting Resources from $RESOURCES_TO_INJECT_PATH"
 rsync -av --exclude=".*" "${RESOURCES_TO_INJECT_PATH}/" "$TARGET_APP_CONTENTS_PATH"
+
+ConfigureAppGroupRedirects
 
 
 
