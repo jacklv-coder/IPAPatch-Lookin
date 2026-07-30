@@ -1,17 +1,53 @@
 import Foundation
 import IPAPatchLookinCore
+import Darwin
+
+@_silgen_name("flock")
+private func systemFlock(_ descriptor: Int32, _ operation: Int32) -> Int32
 
 struct LocalConfiguration: Codable {
     var teamID: String?
     var bundleIDPrefix: String?
     var device: String?
     var simulator: String?
+    var inputIPAPath: String?
 }
 
 struct ConfigurationStore {
     let url: URL
 
     func load() throws -> LocalConfiguration {
+        try withLock(at: lockURL, operation: LOCK_SH) {
+            try loadUnlocked()
+        }
+    }
+
+    @discardableResult
+    func update(
+        _ mutation: (inout LocalConfiguration) throws -> Void
+    ) throws -> LocalConfiguration {
+        try withLock(at: lockURL, operation: LOCK_EX) {
+            var configuration = try loadUnlocked()
+            try mutation(&configuration)
+            try saveUnlocked(configuration)
+            return configuration
+        }
+    }
+
+    func withPreparationLock<T>(_ body: () throws -> T) throws -> T {
+        try withLock(at: preparationLockURL, operation: LOCK_EX, body)
+    }
+
+    private var lockURL: URL {
+        URL(fileURLWithPath: url.path + ".lock")
+    }
+
+    private var preparationLockURL: URL {
+        url.deletingLastPathComponent()
+            .appendingPathComponent(".ipapatch-lookin.prepare.lock")
+    }
+
+    private func loadUnlocked() throws -> LocalConfiguration {
         guard FileManager.default.fileExists(atPath: url.path) else {
             return LocalConfiguration()
         }
@@ -21,12 +57,41 @@ struct ConfigurationStore {
         )
     }
 
-    func save(_ configuration: LocalConfiguration) throws {
+    private func saveUnlocked(_ configuration: LocalConfiguration) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         var data = try encoder.encode(configuration)
         data.append(0x0a)
         try data.write(to: url, options: .atomic)
+    }
+
+    private func withLock<T>(
+        at lockURL: URL,
+        operation: Int32,
+        _ body: () throws -> T
+    ) throws -> T {
+        let descriptor = Darwin.open(
+            lockURL.path,
+            O_CREAT | O_RDWR,
+            S_IRUSR | S_IWUSR
+        )
+        guard descriptor >= 0 else {
+            throw CLIError("Unable to open local workflow lock at \(lockURL.path)")
+        }
+        defer {
+            Darwin.close(descriptor)
+        }
+
+        while systemFlock(descriptor, operation) != 0 {
+            guard errno == EINTR else {
+                throw CLIError("Unable to acquire local workflow lock at \(lockURL.path)")
+            }
+        }
+        defer {
+            _ = systemFlock(descriptor, LOCK_UN)
+        }
+
+        return try body()
     }
 }
 

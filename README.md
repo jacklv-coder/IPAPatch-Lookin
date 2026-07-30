@@ -1,18 +1,25 @@
 # IPAPatch-Lookin
 
-Patch an authorized decrypted iOS IPA, inject
-[LookinServer](https://github.com/QMUI/LookinServer), install the rebuilt app,
-and launch it for live UI inspection.
+Prepare an Xcode project that patches an authorized decrypted iOS IPA and
+injects [LookinServer](https://github.com/QMUI/LookinServer). You choose the
+signing team and destination in Xcode, then run the rebuilt app for live UI
+inspection.
 
-The normal workflow is one command:
+Prepare the project with one command:
 
 ```sh
 ./ipapatch-lookin run ~/Downloads/YourApp.ipa
 ```
 
-You can drag an IPA from Finder into Terminal after
-`./ipapatch-lookin run ` instead of typing its path. The IPA is read directly
-from that location; it is not copied into or committed with this repository.
+The command validates the IPA and its architecture, saves its path in the
+Git-ignored local configuration, resolves LookinServer, and prints the Xcode
+project to open. In Xcode, select the `IPAPatch-DummyApp` scheme and a matching
+physical device or Simulator, choose your development team under Signing &
+Capabilities when building for a physical device, then press `Cmd-R`.
+
+You can drag an IPA from Finder into Terminal after `./ipapatch-lookin run `
+instead of typing its path. The IPA is read directly from that location; it is
+not copied into or committed with this repository.
 
 This project is based on [Naituw/IPAPatch](https://github.com/Naituw/IPAPatch).
 The upstream README is preserved in
@@ -23,18 +30,25 @@ The upstream README is preserved in
 
 ## What is automated
 
-`ipapatch-lookin`:
+`ipapatch-lookin run`:
 
 1. extracts and validates the IPA;
 2. rejects an encrypted main executable (`cryptid != 0`);
 3. reads both `CFBundleSupportedPlatforms` and the Mach-O platform;
-4. selects a physical device for an `iPhoneOS` IPA or a Simulator for an
-   `iPhoneSimulator` IPA;
-5. generates a stable, locally owned bundle identifier;
-6. builds the Xcode project, injects `IPAPatchFramework`, and normalizes its
-   Mach-O load command;
-7. verifies the patched bundle; and
-8. installs and launches it.
+4. verifies that a device IPA has an arm64/arm64e slice, or that a Simulator
+   IPA matches the Mac architecture;
+5. saves the selected IPA path for the Xcode build phase;
+6. resolves the pinned LookinServer Swift Package; and
+7. reports the ready-to-open Xcode project.
+
+When you press `Cmd-R`, Xcode builds the project, injects
+`IPAPatchFramework`, normalizes its Mach-O load command, signs the rebuilt
+bundle, removes embedded app extensions that cannot be re-signed under the
+new host identifier, installs it, and launches it on the destination you
+selected.
+
+For fully automated command-line deployment, use
+`./ipapatch-lookin deploy` instead.
 
 LookinServer `1.2.8` is pinned with Xcode Swift Package Manager. Ruby,
 Bundler, CocoaPods, and an `.xcworkspace` are not required.
@@ -63,9 +77,10 @@ cd IPAPatch-Lookin
 ```
 
 The first invocation builds the small Swift command-line tool and resolves
-LookinServer through Swift Package Manager. For a device build, the command
-uses the only available Apple Development team and connected device when each
-choice is unambiguous.
+LookinServer through Swift Package Manager. It then prints the absolute path
+to `IPAPatch.xcodeproj`. Open that project, select the
+`IPAPatch-DummyApp` scheme, choose a matching physical device or Simulator,
+configure a signing team when needed, and press `Cmd-R`.
 
 After the patched app launches, open Lookin on the Mac and select the running
 app. Its display name is prefixed with `🔬 `.
@@ -91,7 +106,7 @@ directory are ignored by Git.
   --bundle-id-prefix com.example.ipapatch
 ```
 
-You can also save a default destination:
+You can also save a default destination for the optional `deploy` command:
 
 ```sh
 ./ipapatch-lookin setup --device "My iPhone"
@@ -99,19 +114,25 @@ You can also save a default destination:
 ```
 
 Configuration is stored in the Git-ignored `.ipapatch-lookin.json`. Setup is
-optional; all settings can be passed to `run`.
+optional; all deployment settings can be passed to `deploy`.
+
+The CLI and Xcode build phase coordinate access to this file with
+`.ipapatch-lookin.json.lock`, so a concurrent `run`, `setup`, or build cannot
+read a partially updated IPA selection. Concurrent `run` preparations are
+serialized with `.ipapatch-lookin.prepare.lock` without holding the
+configuration lock during package resolution.
 
 ## Commands
 
 ```sh
 ./ipapatch-lookin inspect /path/to/App.ipa
+./ipapatch-lookin run /path/to/App.ipa
+./ipapatch-lookin deploy /path/to/App.ipa --device DEVICE_NAME_OR_UDID
 ./ipapatch-lookin devices
 ./ipapatch-lookin simulators
-./ipapatch-lookin run /path/to/App.ipa --device DEVICE_NAME_OR_UDID
-./ipapatch-lookin run /path/to/App.ipa --simulator NAME_OR_UDID
 ```
 
-Useful `run` options:
+Useful `deploy` options:
 
 - `--team TEAM_ID`: Apple development team used to sign a device build
 - `--bundle-id BUNDLE_ID`: exact identifier for the patched app
@@ -123,10 +144,13 @@ Useful `run` options:
 To validate a device IPA without signing or connecting a device:
 
 ```sh
-./ipapatch-lookin run /path/to/App.ipa --build-only
+./ipapatch-lookin deploy /path/to/App.ipa --build-only
 ```
 
 ## Device and Simulator behavior
+
+The `run` command does not select or require a destination. For `deploy`, the
+behavior is:
 
 | IPA platform | Destination | Signing |
 | --- | --- | --- |
@@ -176,13 +200,77 @@ App Groups or cloud-related defaults that are unavailable after re-signing:
 These redirects help authorized UI analysis but do not grant the patched app
 the original developer's entitlements.
 
+## Troubleshooting
+
+### `Physical device "iPhone" is unavailable`
+
+`run` only prepares the project and does not require a connected device.
+Update the CLI from this repository, run the command again, and open the
+printed `IPAPatch.xcodeproj` path. Select the device in Xcode yourself.
+
+Use `deploy` only when you intentionally want command-line device discovery,
+building, installation, and launch.
+
+### `Missing decrypted IPA at .../Assets/app.ipa`
+
+Prepare the current checkout before building:
+
+```sh
+./ipapatch-lookin run /absolute/path/to/App.ipa
+```
+
+The selected path is local to this checkout and is not committed. If the IPA
+was moved or deleted, rerun the command with its new path.
+
+### `App Extensions must be prefixed with the main bundle identifier`
+
+The patched app uses a new bundle identifier and cannot sign extensions that
+still use the original developer's identifier. The build script removes
+standard and nonstandard embedded `.appex` directories, including content
+under `PlugIns/`, `Extensions/`, `AppClips/`, and `Watch/`.
+
+If this message remains after updating, choose **Product → Clean Build
+Folder** in Xcode and build again.
+
+If installation still reports an extension path that no longer exists in the
+built `.app`, delete the older patched app from the device once and press
+`Cmd-R` again. iOS can retain extension registration metadata from a previous
+installation when upgrading an app under the same bundle identifier.
+
+### App Group entitlement warnings
+
+Messages such as `client is not entitled` are expected when the original app
+accesses App Groups owned by its vendor. They do not by themselves prove that
+the app crashed. Add the required group identifiers to
+`Assets/Resources/IPAPatchLookinConfig.plist` as described above when the
+affected code path needs a sandbox-local substitute.
+
+`LookinServer - Will launch` confirms that the injected framework started.
+
+### Lookin closes the app while loading the hierarchy on iOS 26
+
+LookinServer `1.2.8` normally captures some views with
+`drawViewHierarchyInRect:afterScreenUpdates:`. On iOS 26 that API can raise a
+UIKit hierarchy assertion for an otherwise valid app. The injected framework
+automatically installs an iOS 26 compatibility renderer that uses
+`CALayer.render(in:)` for Lookin screenshots instead.
+
+The Xcode console prints
+`[IPAPatch-Lookin] Installed iOS 26 safe screenshot compatibility` when the
+workaround is active. Some GPU-backed or visual-effect content may have lower
+screenshot fidelity, but hierarchy inspection remains available.
+
+`Terminated due to signal 9` is only the debugger's final termination message.
+Use the preceding exception or the device crash report to identify the cause;
+App Group warnings printed earlier are not sufficient evidence.
+
 ## Limitations
 
 Re-signing does not transfer the original team's App Groups, CloudKit
 containers, push environment, associated domains, Sign in with Apple, keychain
-groups, or server-side authorization. App extensions and Watch content are
-removed to simplify signing. Features that depend on those capabilities may
-remain unavailable.
+groups, or server-side authorization. App extensions, App Clips, and Watch
+content are removed to simplify signing. Features that depend on those
+capabilities may remain unavailable.
 
 ## License and attribution
 

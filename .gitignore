@@ -4,6 +4,8 @@ Temp/
 Product/
 /Assets/app.ipa
 /.ipapatch-lookin.json
+/.ipapatch-lookin.json.lock
+/.ipapatch-lookin.prepare.lock
 /.build/
 /.swiftpm/
 /Input/*

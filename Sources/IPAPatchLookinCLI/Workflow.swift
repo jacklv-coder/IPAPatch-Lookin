@@ -60,13 +60,60 @@ struct RunOptions {
 }
 
 enum PatchWorkflow {
-    static func run(options: RunOptions, context: ProjectContext) throws {
+    static func prepare(input: String?, context: ProjectContext) throws {
+        let ipaURL = try resolveInput(input, in: context)
+
+        print("Inspecting \(ipaURL.path)")
+        let inspection = try IPAInspector.inspect(ipaURL: ipaURL)
+        printInspection(inspection)
+        try validateArchitecture(inspection)
+
+        try context.configurationStore.withPreparationLock {
+            try context.configurationStore.update { configuration in
+                configuration.inputIPAPath = ipaURL.path
+            }
+            print("Resolving LookinServer Swift Package")
+            try CommandRunner.run(
+                "/usr/bin/xcrun",
+                arguments: [
+                    "xcodebuild",
+                    "-resolvePackageDependencies",
+                    "-project",
+                    context.projectURL.path,
+                    "-scheme",
+                    "IPAPatch-DummyApp",
+                ],
+                currentDirectory: context.root,
+                captureOutput: false
+            )
+        }
+
+        let destinationInstruction: String
+        switch inspection.platform {
+        case .device:
+            destinationInstruction = "a connected physical iPhone or iPad"
+        case .simulator:
+            destinationInstruction =
+                "an iOS Simulator matching \(inspection.architectures.joined(separator: ", "))"
+        }
+
+        print("""
+        Xcode project ready:
+          \(context.projectURL.path)
+
+        Open it, select the IPAPatch-DummyApp scheme and
+        \(destinationInstruction), then press Cmd-R.
+        """)
+    }
+
+    static func deploy(options: RunOptions, context: ProjectContext) throws {
         let configuration = try context.configurationStore.load()
         let ipaURL = try resolveInput(options.input, in: context)
 
         print("Inspecting \(ipaURL.path)")
         let inspection = try IPAInspector.inspect(ipaURL: ipaURL)
         printInspection(inspection)
+        try validateArchitecture(inspection)
 
         let prefix = try ConfigurationSupport.validateBundleIdentifier(
             options.bundleIDPrefix
@@ -124,6 +171,30 @@ enum PatchWorkflow {
         """)
     }
 
+    private static func validateArchitecture(_ inspection: IPAInspection) throws {
+        switch inspection.platform {
+        case .device:
+            guard inspection.architectures.contains(where: {
+                $0 == "arm64" || $0 == "arm64e"
+            }) else {
+                throw CLIError(
+                    "The iPhoneOS IPA does not contain a supported 64-bit ARM architecture."
+                )
+            }
+        case .simulator:
+            let hostArchitecture = try CommandRunner.run(
+                "/usr/bin/uname",
+                arguments: ["-m"]
+            ).standardOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard inspection.architectures.contains(hostArchitecture) else {
+                throw CLIError(
+                    "The Simulator IPA contains \(inspection.architectures.joined(separator: ", ")), "
+                        + "but this Mac requires a \(hostArchitecture) iPhoneSimulator slice."
+                )
+            }
+        }
+    }
+
     private static func runOnDevice(
         inspection: IPAInspection,
         bundleIdentifier: String,
@@ -134,14 +205,6 @@ enum PatchWorkflow {
         derivedData: URL,
         context: ProjectContext
     ) throws {
-        guard inspection.architectures.contains(where: {
-            $0 == "arm64" || $0 == "arm64e"
-        }) else {
-            throw CLIError(
-                "The iPhoneOS IPA does not contain a supported 64-bit ARM architecture."
-            )
-        }
-
         if buildOnly {
             let app = try build(
                 inspection: inspection,
@@ -237,17 +300,6 @@ enum PatchWorkflow {
         derivedData: URL,
         context: ProjectContext
     ) throws {
-        let hostArchitecture = try CommandRunner.run(
-            "/usr/bin/uname",
-            arguments: ["-m"]
-        ).standardOutput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard inspection.architectures.contains(hostArchitecture) else {
-            throw CLIError(
-                "The Simulator IPA contains \(inspection.architectures.joined(separator: ", ")), "
-                    + "but this Mac requires a \(hostArchitecture) iPhoneSimulator slice."
-            )
-        }
-
         let simulators = try DestinationDiscovery.simulators()
         let simulator = try DestinationDiscovery.selectSimulator(
             selector: simulatorSelector,

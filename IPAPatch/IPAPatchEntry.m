@@ -24,6 +24,81 @@ static NSString *const ILRedirectUserDefaultsSuitesKey = @"RedirectUserDefaultsS
 static NSDictionary<NSString *, NSString *> *ILAppGroupRedirects;
 static BOOL ILRedirectUserDefaultsSuites;
 
+#if !TARGET_OS_OSX
+static const CGFloat ILLookinScreenshotMaxLengthInPixels = 16384.0;
+
+static UIImage *ILRenderLayerScreenshot(
+    CALayer *layer,
+    BOOL lowQuality,
+    BOOL hidesSublayers
+)
+{
+    CGSize contextSize = layer.frame.size;
+    CGFloat screenScale = UIScreen.mainScreen.scale;
+    CGFloat pixelWidth = contextSize.width * screenScale;
+    CGFloat pixelHeight = contextSize.height * screenScale;
+    if (pixelWidth <= 0 ||
+        pixelHeight <= 0 ||
+        contextSize.width > 20000 ||
+        contextSize.height > 20000) {
+        return nil;
+    }
+
+    CGFloat renderScale = lowQuality ? 1.0 : 0.0;
+    CGFloat maxLength = MAX(pixelWidth, pixelHeight);
+    if (maxLength > ILLookinScreenshotMaxLengthInPixels) {
+        renderScale = MIN(
+            screenScale * ILLookinScreenshotMaxLengthInPixels / maxLength,
+            1.0
+        );
+    }
+
+    NSMutableArray<CALayer *> *visibleSublayers = nil;
+    if (hidesSublayers) {
+        visibleSublayers = [NSMutableArray array];
+        for (CALayer *sublayer in [layer.sublayers copy]) {
+            if (!sublayer.hidden) {
+                sublayer.hidden = YES;
+                [visibleSublayers addObject:sublayer];
+            }
+        }
+    }
+
+    UIGraphicsBeginImageContextWithOptions(contextSize, NO, renderScale);
+    CGContextRef context = UIGraphicsGetCurrentContext();
+    UIImage *image = nil;
+    if (context) {
+        [layer renderInContext:context];
+        image = UIGraphicsGetImageFromCurrentImageContext();
+    }
+    UIGraphicsEndImageContext();
+
+    for (CALayer *sublayer in visibleSublayers) {
+        sublayer.hidden = NO;
+    }
+    return image;
+}
+
+@interface CALayer (IPAPatchLookinScreenshot)
+- (UIImage *)il_groupScreenshotWithLowQuality:(BOOL)lowQuality;
+- (UIImage *)il_soloScreenshotWithLowQuality:(BOOL)lowQuality;
+@end
+
+@implementation CALayer (IPAPatchLookinScreenshot)
+
+- (UIImage *)il_groupScreenshotWithLowQuality:(BOOL)lowQuality
+{
+    return ILRenderLayerScreenshot(self, lowQuality, NO);
+}
+
+- (UIImage *)il_soloScreenshotWithLowQuality:(BOOL)lowQuality
+{
+    return ILRenderLayerScreenshot(self, lowQuality, YES);
+}
+
+@end
+#endif
+
 static NSDictionary *ILLoadConfiguration(void)
 {
     NSString *path = [[NSBundle mainBundle] pathForResource:ILConfigFileName
@@ -152,6 +227,26 @@ static BOOL ILExchangeInstanceMethods(Class targetClass, SEL originalSelector, S
             @selector(il_initWithSuiteName:)
         );
     }
+
+#if !TARGET_OS_OSX
+    if (@available(iOS 26.0, *)) {
+        BOOL installedGroupHook = ILExchangeInstanceMethods(
+            CALayer.class,
+            NSSelectorFromString(@"lks_groupScreenshotWithLowQuality:"),
+            @selector(il_groupScreenshotWithLowQuality:)
+        );
+        BOOL installedSoloHook = ILExchangeInstanceMethods(
+            CALayer.class,
+            NSSelectorFromString(@"lks_soloScreenshotWithLowQuality:"),
+            @selector(il_soloScreenshotWithLowQuality:)
+        );
+        if (installedGroupHook && installedSoloHook) {
+            NSLog(
+                @"[IPAPatch-Lookin] Installed iOS 26 safe screenshot compatibility"
+            );
+        }
+    }
+#endif
 
     NSDictionary *forcedDefaults = configuration[ILForcedBooleanDefaultsKey];
     if ([forcedDefaults isKindOfClass:NSDictionary.class]) {

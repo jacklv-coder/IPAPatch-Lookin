@@ -61,7 +61,7 @@ private struct ParsedArguments {
 }
 
 enum CLI {
-    static let version = "0.2.0"
+    static let version = "0.3.0"
 
     static func run(arguments: [String]) throws {
         let context = try ProjectContext.locate()
@@ -105,10 +105,21 @@ enum CLI {
             try setup(arguments: remaining, context: context)
         case "run":
             let parsed = try ParsedArguments(remaining)
-            guard parsed.positionals.count <= 1 else {
-                throw CLIError("run accepts at most one IPA path")
+            guard parsed.positionals.count <= 1,
+                  parsed.values.isEmpty,
+                  parsed.flags.isEmpty else {
+                throw CLIError("usage: ./ipapatch-lookin run [/path/to/app.ipa]")
             }
-            try PatchWorkflow.run(
+            try PatchWorkflow.prepare(
+                input: parsed.positionals.first,
+                context: context
+            )
+        case "deploy":
+            let parsed = try ParsedArguments(remaining)
+            guard parsed.positionals.count <= 1 else {
+                throw CLIError("deploy accepts at most one IPA path")
+            }
+            try PatchWorkflow.deploy(
                 options: RunOptions(
                     input: parsed.positionals.first,
                     teamID: parsed.values["--team"],
@@ -140,29 +151,28 @@ enum CLI {
               Set(parsed.values.keys).isSubset(of: allowedValues) else {
             throw CLIError("setup received an unsupported argument; run --help for its options")
         }
-        var configuration = try context.configurationStore.load()
         let detectedTeams = ConfigurationSupport.inferredDevelopmentTeams()
+        try context.configurationStore.update { configuration in
+            if let team = parsed.values["--team"] {
+                configuration.teamID = try ConfigurationSupport.validateTeamID(team)
+            } else if configuration.teamID == nil, detectedTeams.count == 1 {
+                configuration.teamID = detectedTeams.first
+                print("Using detected Apple development team: \(detectedTeams[0])")
+            }
 
-        if let team = parsed.values["--team"] {
-            configuration.teamID = try ConfigurationSupport.validateTeamID(team)
-        } else if configuration.teamID == nil, detectedTeams.count == 1 {
-            configuration.teamID = detectedTeams.first
-            print("Using detected Apple development team: \(detectedTeams[0])")
-        }
+            let prefixCandidate = parsed.values["--bundle-id-prefix"]
+                ?? configuration.bundleIDPrefix
+                ?? ConfigurationSupport.defaultBundleIDPrefix()
+            configuration.bundleIDPrefix =
+                try ConfigurationSupport.validateBundleIdentifier(prefixCandidate)
 
-        let prefixCandidate = parsed.values["--bundle-id-prefix"]
-            ?? configuration.bundleIDPrefix
-            ?? ConfigurationSupport.defaultBundleIDPrefix()
-        configuration.bundleIDPrefix =
-            try ConfigurationSupport.validateBundleIdentifier(prefixCandidate)
-
-        if let device = parsed.values["--device"] {
-            configuration.device = device
+            if let device = parsed.values["--device"] {
+                configuration.device = device
+            }
+            if let simulator = parsed.values["--simulator"] {
+                configuration.simulator = simulator
+            }
         }
-        if let simulator = parsed.values["--simulator"] {
-            configuration.simulator = simulator
-        }
-        try context.configurationStore.save(configuration)
 
         print("Saved local configuration to \(context.configurationStore.url.path)")
         print("Resolving LookinServer Swift Package")
@@ -188,7 +198,8 @@ enum CLI {
     Usage:
       ./ipapatch-lookin setup [options]
       ./ipapatch-lookin inspect /path/to/app.ipa
-      ./ipapatch-lookin run [/path/to/app.ipa] [options]
+      ./ipapatch-lookin run [/path/to/app.ipa]
+      ./ipapatch-lookin deploy [/path/to/app.ipa] [options]
       ./ipapatch-lookin devices
       ./ipapatch-lookin simulators
 
@@ -198,7 +209,7 @@ enum CLI {
       --device NAME_OR_UDID         Default physical device
       --simulator NAME_OR_UDID      Default Simulator
 
-    Run options:
+    Deploy options:
       --team TEAM_ID
       --bundle-id BUNDLE_ID         Exact patched bundle identifier
       --bundle-id-prefix PREFIX
@@ -208,7 +219,9 @@ enum CLI {
       --build-only                  Build and verify without installing
       --no-launch                   Install without launching
 
-    If no IPA path is given, run uses the only .ipa file in Input/.
+    `run` prepares IPAPatch.xcodeproj for manual device selection in Xcode.
+    `deploy` builds, installs, and launches from the command line.
+    If no IPA path is given, either command uses the only .ipa file in Input/.
     Only decrypted IPAs you own or are authorized to inspect are supported.
     """
 }

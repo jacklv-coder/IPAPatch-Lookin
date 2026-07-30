@@ -38,11 +38,18 @@ if ! strings "$PATCH_BINARY" | grep -q "LookinServer - Will launch"; then
     exit 1
 fi
 
+REMAINING_APP_EXTENSION=$(find "$APP_PATH" -type d -name "*.appex" -print -quit)
+if [ -n "$REMAINING_APP_EXTENSION" ]; then
+    echo "error: Embedded app extension was not removed: $REMAINING_APP_EXTENSION" >&2
+    exit 1
+fi
+
 echo "Verified patched app:"
 echo "  app: $APP_PATH"
 echo "  executable: $APP_BINARY_NAME"
 echo "  injection: @executable_path/Dylibs/IPAPatchFramework"
 echo "  LookinServer: linked"
+echo "  app extensions: removed"
 
 if codesign --verify --deep --strict "$APP_PATH" >/dev/null 2>&1; then
     echo "  signature: valid"
