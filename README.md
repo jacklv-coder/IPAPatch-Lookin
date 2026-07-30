@@ -274,7 +274,12 @@ screenshot fidelity, but hierarchy inspection remains available.
 
 `Terminated due to signal 9` is only the debugger's final termination message.
 Use the preceding exception or the device crash report to identify the cause;
-App Group warnings printed earlier are not sufficient evidence.
+App Group warnings printed earlier are not sufficient evidence. Many App Store
+builds also terminate themselves when they detect LLDB. The shared
+`IPAPatch-DummyApp` scheme therefore builds, installs, and launches without
+attaching a debugger by default, which is sufficient for Lookin inspection.
+Enable **Debug executable** under **Product → Scheme → Edit Scheme → Run →
+Info** only when the input app supports LLDB or you specifically need it.
 
 ## Limitations
 
