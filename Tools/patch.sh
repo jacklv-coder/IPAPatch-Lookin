@@ -103,7 +103,6 @@ BuildMachONormalizer () {
     fi
 }
 
-
 # ---------------------------------------------------
 # 0. Prepare Working Enviroment
 
@@ -362,6 +361,9 @@ rm -rf "$TARGET_APP_CONTENTS_PATH/Extensions" || true
 rm -rf "$TARGET_APP_CONTENTS_PATH/AppClips" || true
 rm -rf "$TARGET_APP_CONTENTS_PATH/Watch" || true
 find "$TARGET_APP_CONTENTS_PATH" -type d -name "*.appex" -prune -exec rm -rf {} +
+
+echo "Removing App Store SC_Info metadata"
+rm -rf "$TARGET_APP_CONTENTS_PATH/SC_Info" || true
 
 if [ "$REMOVE_WATCHPLACEHOLDER" = true ]; then
     echo "Removing com.apple.WatchPlaceholder"

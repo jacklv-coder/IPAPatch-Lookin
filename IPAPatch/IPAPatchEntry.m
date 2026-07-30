@@ -23,6 +23,8 @@ static NSString *const ILRedirectUserDefaultsSuitesKey = @"RedirectUserDefaultsS
 
 static NSDictionary<NSString *, NSString *> *ILAppGroupRedirects;
 static BOOL ILRedirectUserDefaultsSuites;
+static NSMutableSet<NSString *> *ILLoggedAppGroupRedirects;
+static NSMutableSet<NSString *> *ILLoggedUserDefaultsRedirects;
 
 #if !TARGET_OS_OSX
 static const CGFloat ILLookinScreenshotMaxLengthInPixels = 16384.0;
@@ -128,6 +130,20 @@ static NSString *ILRedirectDirectoryName(NSString *groupIdentifier)
     return directoryName;
 }
 
+static BOOL ILShouldLogRedirect(
+    NSMutableSet<NSString *> *loggedIdentifiers,
+    NSString *identifier
+)
+{
+    @synchronized (loggedIdentifiers) {
+        if ([loggedIdentifiers containsObject:identifier]) {
+            return NO;
+        }
+        [loggedIdentifiers addObject:identifier];
+        return YES;
+    }
+}
+
 @interface NSFileManager (IPAPatchLookinAppGroup)
 - (NSURL *)il_containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier;
 @end
@@ -158,11 +174,13 @@ static NSString *ILRedirectDirectoryName(NSString *groupIdentifier)
         return [self il_containerURLForSecurityApplicationGroupIdentifier:groupIdentifier];
     }
 
-    NSLog(
-        @"[IPAPatch-Lookin] Redirected App Group %@ to %@",
-        groupIdentifier,
-        redirectedURL.path
-    );
+    if (ILShouldLogRedirect(ILLoggedAppGroupRedirects, groupIdentifier)) {
+        NSLog(
+            @"[IPAPatch-Lookin] Redirected App Group %@ to %@",
+            groupIdentifier,
+            redirectedURL.path
+        );
+    }
     return redirectedURL;
 }
 
@@ -180,10 +198,12 @@ static NSString *ILRedirectDirectoryName(NSString *groupIdentifier)
         return [self il_initWithSuiteName:suiteName];
     }
 
-    NSLog(
-        @"[IPAPatch-Lookin] Redirected UserDefaults suite %@ to the app sandbox",
-        suiteName
-    );
+    if (ILShouldLogRedirect(ILLoggedUserDefaultsRedirects, suiteName)) {
+        NSLog(
+            @"[IPAPatch-Lookin] Redirected UserDefaults suite %@ to the app sandbox",
+            suiteName
+        );
+    }
     return [self il_initWithSuiteName:nil];
 }
 
@@ -214,6 +234,8 @@ static BOOL ILExchangeInstanceMethods(Class targetClass, SEL originalSelector, S
     ILAppGroupRedirects = [redirects isKindOfClass:NSDictionary.class] ? redirects : @{};
     ILRedirectUserDefaultsSuites =
         [configuration[ILRedirectUserDefaultsSuitesKey] boolValue];
+    ILLoggedAppGroupRedirects = [NSMutableSet set];
+    ILLoggedUserDefaultsRedirects = [NSMutableSet set];
 
     if (ILAppGroupRedirects.count > 0) {
         ILExchangeInstanceMethods(

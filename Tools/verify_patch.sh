@@ -44,12 +44,18 @@ if [ -n "$REMAINING_APP_EXTENSION" ]; then
     exit 1
 fi
 
+if [ -e "$APP_PATH/SC_Info" ]; then
+    echo "error: App Store SC_Info metadata was not removed" >&2
+    exit 1
+fi
+
 echo "Verified patched app:"
 echo "  app: $APP_PATH"
 echo "  executable: $APP_BINARY_NAME"
 echo "  injection: @executable_path/Dylibs/IPAPatchFramework"
 echo "  LookinServer: linked"
 echo "  app extensions: removed"
+echo "  App Store SC_Info: removed"
 
 if codesign --verify --deep --strict "$APP_PATH" >/dev/null 2>&1; then
     echo "  signature: valid"

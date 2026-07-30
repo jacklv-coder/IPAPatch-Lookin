@@ -227,15 +227,18 @@ was moved or deleted, rerun the command with its new path.
 The patched app uses a new bundle identifier and cannot sign extensions that
 still use the original developer's identifier. The build script removes
 standard and nonstandard embedded `.appex` directories, including content
-under `PlugIns/`, `Extensions/`, `AppClips/`, and `Watch/`.
+under `PlugIns/`, `Extensions/`, `AppClips/`, and `Watch/`. It also removes the
+root App Store `SC_Info` metadata. A decrypted main executable does not need
+those SINF records, while retaining them can make a second Xcode Run recreate
+an incomplete extension directory or request an unavailable App Store patch
+ticket.
 
 If this message remains after updating, choose **Product → Clean Build
 Folder** in Xcode and build again.
 
-If installation still reports an extension path that no longer exists in the
-built `.app`, delete the older patched app from the device once and press
-`Cmd-R` again. iOS can retain extension registration metadata from a previous
-installation when upgrading an app under the same bundle identifier.
+For a patched app installed before this fix, delete that patched copy from the
+device once and press `Cmd-R` again. The official App Store app uses a different
+bundle identifier and is not affected.
 
 ### App Group entitlement warnings
 
