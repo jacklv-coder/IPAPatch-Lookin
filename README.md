@@ -1,5 +1,9 @@
 # IPAPatch-Lookin
 
+<p align="right">
+  <strong>English</strong> | <a href="README.zh-CN.md">简体中文</a>
+</p>
+
 Inspect an authorized decrypted iOS app with
 [Lookin](https://lookin.work/) from a normal Xcode project.
 
@@ -17,6 +21,19 @@ bundle, and re-signs it for a physical device or compatible Simulator.
 > Use this project only with applications you own or are authorized to inspect.
 > This repository does not include IPA files, signing certificates, provisioning
 > profiles, or code from the demonstrated application.
+
+## Built on IPAPatch
+
+[IPAPatch](https://github.com/Naituw/IPAPatch), created by Wu Tian, is an
+open-source Xcode template that rebuilds and re-signs an authorized decrypted
+iOS app while injecting custom code, frameworks, and dynamic libraries into
+its original `MH_EXECUTE` executable.
+
+IPAPatch-Lookin keeps that injection model and turns it into a focused workflow
+for live UI inspection. It adds LookinServer through Swift Package Manager, a
+Swift command-line workflow, IPA and Mach-O validation, modern signing cleanup,
+automatic App Group redirects, and iOS 26 compatibility. The original project
+documentation is preserved in [README_UPSTREAM.md](README_UPSTREAM.md).
 
 ## Quick start
 
@@ -53,7 +70,7 @@ with this repository.
 - an Xcode project prepared for the selected decrypted IPA;
 - validation of encryption state, platform, and Mach-O architecture;
 - LookinServer embedded in the injected Debug framework;
-- automatic removal of extensions and App Store metadata that cannot be
+- automatic removal of extensions and root App Store metadata that cannot be
   re-signed safely;
 - sandbox-local redirects for App Groups declared by the original app;
 - an iOS 26-safe Lookin screenshot renderer; and
@@ -100,7 +117,7 @@ Simulator-compatible; its Mach-O platform must be `iPhoneSimulator`.
 
 ## Use an IPA from `Input/`
 
-Instead of passing a path, place exactly one IPA anywhere inside the ignored
+Instead of passing a path, place exactly one IPA directly inside the ignored
 `Input/` directory:
 
 ```sh
@@ -216,8 +233,7 @@ platform, and architecture. During the Xcode build:
    metadata are removed; and
 7. the rebuilt bundle is signed, installed, and launched.
 
-The injected framework targets iOS 15.0. LookinServer is excluded from Release
-builds by the Swift Package build condition.
+The injected framework targets iOS 15.0.
 
 ## Analysis compatibility
 
