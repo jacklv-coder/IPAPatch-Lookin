@@ -1,74 +1,26 @@
 # IPAPatch-Lookin
 
-Prepare an Xcode project that patches an authorized decrypted iOS IPA and
-injects [LookinServer](https://github.com/QMUI/LookinServer). You choose the
-signing team and destination in Xcode, then run the rebuilt app for live UI
-inspection.
+Inspect an authorized decrypted iOS app with
+[Lookin](https://lookin.work/) from a normal Xcode project.
 
-Prepare the project with one command:
+IPAPatch-Lookin validates the IPA, injects a small framework containing
+[LookinServer](https://github.com/QMUI/LookinServer), rebuilds the application
+bundle, and re-signs it for a physical device or compatible Simulator.
 
-```sh
-./ipapatch-lookin run ~/Downloads/YourApp.ipa
-```
+<p align="center">
+  <img src="Docs/Media/lookin-youtube-demo.gif"
+       alt="Inspecting a patched iOS app in Lookin"
+       width="960">
+</p>
 
-The command validates the IPA and its architecture, saves its path in the
-Git-ignored local configuration, resolves LookinServer, and prints the Xcode
-project to open. In Xcode, select the `IPAPatch-DummyApp` scheme and a matching
-physical device or Simulator, choose your development team under Signing &
-Capabilities when building for a physical device, then press `Cmd-R`.
-
-You can drag an IPA from Finder into Terminal after `./ipapatch-lookin run `
-instead of typing its path. The IPA is read directly from that location; it is
-not copied into or committed with this repository.
-
-This project is based on [Naituw/IPAPatch](https://github.com/Naituw/IPAPatch).
-The upstream README is preserved in
-[README_UPSTREAM.md](README_UPSTREAM.md).
-
+> [!IMPORTANT]
 > Use this project only with applications you own or are authorized to inspect.
-> No IPA files, signing certificates, or provisioning profiles are included.
-
-## What is automated
-
-`ipapatch-lookin run`:
-
-1. extracts and validates the IPA;
-2. rejects an encrypted main executable (`cryptid != 0`);
-3. reads both `CFBundleSupportedPlatforms` and the Mach-O platform;
-4. verifies that a device IPA has an arm64/arm64e slice, or that a Simulator
-   IPA matches the Mac architecture;
-5. saves the selected IPA path for the Xcode build phase;
-6. resolves the pinned LookinServer Swift Package; and
-7. reports the ready-to-open Xcode project.
-
-When you press `Cmd-R`, Xcode builds the project, injects
-`IPAPatchFramework`, normalizes its Mach-O load command, signs the rebuilt
-bundle, removes embedded app extensions that cannot be re-signed under the
-new host identifier, installs it, and launches it on the destination you
-selected.
-
-For fully automated command-line deployment, use
-`./ipapatch-lookin deploy` instead.
-
-LookinServer `1.2.8` is pinned with Xcode Swift Package Manager. Ruby,
-Bundler, CocoaPods, and an `.xcworkspace` are not required.
-
-## Requirements
-
-- macOS 13 or newer with Xcode
-- the [Lookin macOS app](https://lookin.work/)
-- a decrypted IPA you are authorized to inspect
-- for an `iPhoneOS` IPA: a connected iPhone or iPad with Developer Mode
-  enabled and iOS 15.0 or newer, plus an Apple Development signing identity
-- for an `iPhoneSimulator` IPA: an installed iOS Simulator runtime and a
-  Simulator slice matching the Mac architecture
-
-Most downloaded or decrypted App Store IPAs are `iPhoneOS` arm64 builds. They
-can run on a real device, not in the Simulator. An arm64 architecture alone
-does not make an IPA Simulator-compatible; its Mach-O platform must be
-`iPhoneSimulator`.
+> This repository does not include IPA files, signing certificates, provisioning
+> profiles, or code from the demonstrated application.
 
 ## Quick start
+
+Clone the repository and point it at a decrypted IPA:
 
 ```sh
 git clone git@github.com:jacklv-coder/IPAPatch-Lookin.git
@@ -76,72 +28,145 @@ cd IPAPatch-Lookin
 ./ipapatch-lookin run ~/Downloads/YourApp.ipa
 ```
 
-The first invocation builds the small Swift command-line tool and resolves
-LookinServer through Swift Package Manager. It then prints the absolute path
-to `IPAPatch.xcodeproj`. Open that project, select the
-`IPAPatch-DummyApp` scheme, choose a matching physical device or Simulator,
-configure a signing team when needed, and press `Cmd-R`.
+Then:
+
+1. open the printed `IPAPatch.xcodeproj` path;
+2. select the `IPAPatch-DummyApp` scheme;
+3. choose a compatible iPhone, iPad, or Simulator;
+4. select your development team for a physical device; and
+5. press `Cmd-R`.
 
 After the patched app launches, open Lookin on the Mac and select the running
 app. Its display name is prefixed with `🔬 `.
 
-As an alternative to passing a path, place exactly one IPA anywhere inside the
-ignored `Input/` directory:
+No Ruby, Bundler, CocoaPods, or `.xcworkspace` is required. LookinServer
+`1.2.8` is pinned and resolved with Xcode Swift Package Manager.
+
+You can also type `./ipapatch-lookin run ` (including the trailing space) and
+drag an IPA from Finder into Terminal.
+
+The IPA is read from its existing location. It is not copied into or committed
+with this repository.
+
+## What you get
+
+- an Xcode project prepared for the selected decrypted IPA;
+- validation of encryption state, platform, and Mach-O architecture;
+- LookinServer embedded in the injected Debug framework;
+- automatic removal of extensions and App Store metadata that cannot be
+  re-signed safely;
+- sandbox-local redirects for App Groups declared by the original app;
+- an iOS 26-safe Lookin screenshot renderer; and
+- optional command-line build, install, and launch.
+
+`run` is the most convenient workflow when you want to choose signing and the
+destination in Xcode. `deploy` performs the complete workflow from Terminal.
+
+| Workflow | Command | Result |
+| --- | --- | --- |
+| Inspect only | `./ipapatch-lookin inspect App.ipa` | Report platform, slices, and encryption state |
+| Xcode workflow | `./ipapatch-lookin run App.ipa` | Prepare the project for manual Xcode Run |
+| One-command deployment | `./ipapatch-lookin deploy App.ipa --device DEVICE --team TEAM_ID` | Build, install, and launch |
+
+## Demo
+
+The demo shows a decrypted device build launched on an authorized development
+device and inspected through Lookin.
+
+| Live hierarchy inspection | Successful Xcode build |
+| --- | --- |
+| ![Lookin hierarchy inspection](Docs/Media/lookin-youtube-inspection.jpg) | ![Xcode build success](Docs/Media/xcode-build-success.jpg) |
+
+The YouTube interface shown in these images is used solely as a recognizable
+technical demonstration. YouTube and Google are not affiliated with this
+project, and no YouTube IPA or proprietary code is distributed.
+
+## Requirements
+
+- macOS 13 or newer with Xcode
+- the [Lookin macOS app](https://lookin.work/)
+- a decrypted IPA you own or are authorized to inspect
+- for an `iPhoneOS` IPA:
+  - a connected iPhone or iPad running iOS 15.0 or newer;
+  - Developer Mode enabled; and
+  - an Apple Development signing identity
+- for an `iPhoneSimulator` IPA:
+  - an installed iOS Simulator runtime; and
+  - a Simulator binary slice matching the Mac architecture
+
+Most App Store IPAs are `iPhoneOS` arm64 builds. They can run on a physical
+device, not in the Simulator. An arm64 architecture alone does not make an IPA
+Simulator-compatible; its Mach-O platform must be `iPhoneSimulator`.
+
+## Use an IPA from `Input/`
+
+Instead of passing a path, place exactly one IPA anywhere inside the ignored
+`Input/` directory:
 
 ```sh
 cp ~/Downloads/YourApp.ipa Input/
 ./ipapatch-lookin run
 ```
 
-The repository intentionally keeps only `Input/.gitkeep`; IPA files in that
-directory are ignored by Git.
+The repository tracks only `Input/.gitkeep`. IPA files below `Input/` are
+ignored by Git.
 
-## Optional local setup
+## One-time setup and command-line deployment
 
 `setup` resolves the Xcode package and saves reusable local preferences:
 
 ```sh
 ./ipapatch-lookin setup \
   --team ABCDE12345 \
-  --bundle-id-prefix com.example.ipapatch
+  --bundle-id-prefix com.example.ipapatch \
+  --device "My iPhone"
 ```
 
-You can also save a default destination for the optional `deploy` command:
+After setup, deployment can be reduced to:
 
 ```sh
-./ipapatch-lookin setup --device "My iPhone"
+./ipapatch-lookin deploy ~/Downloads/YourApp.ipa
+```
+
+For a Simulator IPA:
+
+```sh
 ./ipapatch-lookin setup --simulator "iPhone 17 Pro"
+./ipapatch-lookin deploy ~/Downloads/SimulatorApp.ipa
 ```
 
 Configuration is stored in the Git-ignored `.ipapatch-lookin.json`. Setup is
-optional; all deployment settings can be passed to `deploy`.
+optional; the same values can be passed directly to `deploy`.
 
-The CLI and Xcode build phase coordinate access to this file with
-`.ipapatch-lookin.json.lock`, so a concurrent `run`, `setup`, or build cannot
-read a partially updated IPA selection. Concurrent `run` preparations are
-serialized with `.ipapatch-lookin.prepare.lock` without holding the
-configuration lock during package resolution.
+The CLI and Xcode build phase coordinate access to the configuration file with
+`.ipapatch-lookin.json.lock`. Concurrent preparations are serialized with
+`.ipapatch-lookin.prepare.lock`.
 
 ## Commands
 
-```sh
+```text
+./ipapatch-lookin setup [options]
 ./ipapatch-lookin inspect /path/to/App.ipa
-./ipapatch-lookin run /path/to/App.ipa
-./ipapatch-lookin deploy /path/to/App.ipa --device DEVICE_NAME_OR_UDID
+./ipapatch-lookin run [/path/to/App.ipa]
+./ipapatch-lookin deploy [/path/to/App.ipa] [options]
 ./ipapatch-lookin devices
 ./ipapatch-lookin simulators
 ```
 
 Useful `deploy` options:
 
-- `--team TEAM_ID`: Apple development team used to sign a device build
-- `--bundle-id BUNDLE_ID`: exact identifier for the patched app
-- `--bundle-id-prefix PREFIX`: prefix for the generated identifier
-- `--build-only`: build and verify without installing
-- `--no-launch`: install without launching
-- `--derived-data PATH`: override the reusable build cache location
+| Option | Purpose |
+| --- | --- |
+| `--team TEAM_ID` | Apple development team for a physical device |
+| `--bundle-id BUNDLE_ID` | Exact identifier for the patched app |
+| `--bundle-id-prefix PREFIX` | Prefix for a generated identifier |
+| `--device NAME_OR_UDID` | Physical device destination |
+| `--simulator NAME_OR_UDID` | Simulator destination |
+| `--derived-data PATH` | Override the reusable build cache |
+| `--build-only` | Build and verify without installing |
+| `--no-launch` | Install without launching |
 
-To validate a device IPA without signing or connecting a device:
+To build and verify a device IPA without signing or connecting a device:
 
 ```sh
 ./ipapatch-lookin deploy /path/to/App.ipa --build-only
@@ -149,44 +174,63 @@ To validate a device IPA without signing or connecting a device:
 
 ## Device and Simulator behavior
 
-The `run` command does not select or require a destination. For `deploy`, the
-behavior is:
+The `run` command prepares Xcode but does not select or require a destination.
+For `deploy`, the behavior is:
 
 | IPA platform | Destination | Signing |
 | --- | --- | --- |
-| `iPhoneOS` | connected physical iPhone/iPad | Apple Development |
-| `iPhoneSimulator` | local iOS Simulator | automatic ad-hoc; no team required |
+| `iPhoneOS` | connected physical iPhone or iPad | Apple Development |
+| `iPhoneSimulator` | local iOS Simulator | automatic ad-hoc signing; no team required |
 
-The tool does not attempt to convert a device binary into a Simulator binary.
-That conversion is not possible through re-signing or Mach-O load-command
-patching.
+The tool does not convert a device binary into a Simulator binary. Re-signing
+or changing Mach-O load commands cannot perform that conversion.
 
-## How the patch works
+## How it works
 
-The original application remains an `MH_EXECUTE` Mach-O. Xcode compiles
-`IPAPatchFramework`, the build script copies it to
-`Dylibs/IPAPatchFramework`, and `optool` inserts
-`@executable_path/Dylibs/IPAPatchFramework` into the original executable.
-The Swift normalizer changes the legacy upward-load command into a standard
-`LC_LOAD_DYLIB`, validates every universal-binary slice, and then the bundle is
-re-signed for installation.
+Xcode does not link the IPA as a library. The original application remains an
+`MH_EXECUTE` Mach-O executable.
 
-LookinServer is compiled into the injected framework for Debug builds. Its
-Swift Package condition disables the inspection server in Release builds.
-The injected framework targets iOS 15.0, whose system image already includes
-the Swift runtime used by LookinServer; it does not depend on the input IPA
-having embedded Swift runtime dylibs.
+```mermaid
+flowchart LR
+    IPA["Authorized decrypted IPA"] --> Validate["Validate platform, slices, and cryptid"]
+    Validate --> Xcode["Build IPAPatchFramework in Xcode"]
+    Lookin["LookinServer Swift Package"] --> Xcode
+    Xcode --> Inject["Copy framework and insert LC_LOAD_DYLIB"]
+    Inject --> Prepare["Remove incompatible extensions and metadata"]
+    Prepare --> Sign["Re-sign the rebuilt app"]
+    Sign --> Launch["Install and launch"]
+    Launch --> Inspect["Inspect from Lookin on macOS"]
+```
 
-## Analysis compatibility configuration
+Before Xcode builds, the CLI validates the selected IPA's encryption state,
+platform, and architecture. During the Xcode build:
+
+1. the selected IPA is extracted;
+2. Xcode compiles `IPAPatchFramework` with LookinServer in Debug builds;
+3. the framework is copied to `Dylibs/IPAPatchFramework`;
+4. `optool` adds `@executable_path/Dylibs/IPAPatchFramework` to the original
+   executable;
+5. the Swift Mach-O normalizer converts the legacy upward-load command into a
+   standard `LC_LOAD_DYLIB` and verifies every universal-binary slice;
+6. extensions, App Clips, Watch content, and stale root App Store `SC_Info`
+   metadata are removed; and
+7. the rebuilt bundle is signed, installed, and launched.
+
+The injected framework targets iOS 15.0. LookinServer is excluded from Release
+builds by the Swift Package build condition.
+
+## Analysis compatibility
+
+### App Group redirects
 
 On every build, the patch script reads
 `com.apple.security.application-groups` from the input app's code-signing
-entitlements and generates sandbox-local redirects in the built app. The
-repository therefore does not contain identifiers belonging to a particular
-vendor.
+entitlements. It generates sandbox-local redirects inside the patched app
+rather than hardcoding identifiers from a particular vendor in this
+repository.
 
-You can still edit `Assets/Resources/IPAPatchLookinConfig.plist` to override a
-generated App Group destination or configure app-specific defaults:
+You can override a generated destination or add app-specific defaults in
+`Assets/Resources/IPAPatchLookinConfig.plist`:
 
 ```xml
 <key>AppGroupRedirects</key>
@@ -203,20 +247,44 @@ generated App Group destination or configure app-specific defaults:
 </dict>
 ```
 
-These redirects help authorized UI analysis but do not grant the patched app
-the original developer's entitlements. Manually configured mappings take
+These redirects improve authorized UI analysis, but they do not grant the
+patched app the original developer's entitlements. Manual mappings take
 precedence over generated mappings.
+
+### iOS 26 Lookin screenshots
+
+LookinServer `1.2.8` normally captures some views with
+`drawViewHierarchyInRect:afterScreenUpdates:`. On iOS 26 this can raise a UIKit
+hierarchy assertion for an otherwise valid app.
+
+IPAPatch-Lookin automatically installs a compatibility renderer that uses
+`CALayer.render(in:)`. The Xcode console confirms it with:
+
+```text
+[IPAPatch-Lookin] Installed iOS 26 safe screenshot compatibility
+```
+
+Some GPU-backed or visual-effect content may have lower screenshot fidelity,
+but hierarchy and property inspection remain available.
+
+### Apps that detect LLDB
+
+Some App Store builds terminate themselves when they detect a debugger. The
+shared `IPAPatch-DummyApp` scheme therefore launches without attaching LLDB by
+default, which is sufficient for Lookin inspection.
+
+Enable **Debug executable** under **Product → Scheme → Edit Scheme → Run →
+Info** only when the input app supports LLDB or you specifically need it.
 
 ## Troubleshooting
 
 ### `Physical device "iPhone" is unavailable`
 
-`run` only prepares the project and does not require a connected device.
-Update the CLI from this repository, run the command again, and open the
-printed `IPAPatch.xcodeproj` path. Select the device in Xcode yourself.
+`run` does not require a connected device. Run it again, open the printed
+`IPAPatch.xcodeproj`, and select a destination in Xcode.
 
-Use `deploy` only when you intentionally want command-line device discovery,
-building, installation, and launch.
+Use `deploy` only when you want command-line device discovery, building,
+installation, and launch.
 
 ### `Missing decrypted IPA at .../Assets/app.ipa`
 
@@ -226,71 +294,76 @@ Prepare the current checkout before building:
 ./ipapatch-lookin run /absolute/path/to/App.ipa
 ```
 
-The selected path is local to this checkout and is not committed. If the IPA
-was moved or deleted, rerun the command with its new path.
+The selected path is local to the checkout. If the IPA was moved or deleted,
+run the command again with its new path.
 
 ### `App Extensions must be prefixed with the main bundle identifier`
 
 The patched app uses a new bundle identifier and cannot sign extensions that
-still use the original developer's identifier. The build script removes
-standard and nonstandard embedded `.appex` directories, including content
-under `PlugIns/`, `Extensions/`, `AppClips/`, and `Watch/`. It also removes the
-root App Store `SC_Info` metadata. A decrypted main executable does not need
-those SINF records, while retaining them can make a second Xcode Run recreate
-an incomplete extension directory or request an unavailable App Store patch
-ticket.
+still use the original developer's identifier. The build removes embedded
+`.appex` directories under `PlugIns/`, `Extensions/`, `AppClips/`, and
+`Watch/`, together with root App Store `SC_Info` metadata.
 
-If this message remains after updating, choose **Product → Clean Build
-Folder** in Xcode and build again.
+If the error remains:
 
-For a patched app installed before this fix, delete that patched copy from the
-device once and press `Cmd-R` again. The official App Store app uses a different
-bundle identifier and is not affected.
+1. choose **Product → Clean Build Folder** in Xcode;
+2. delete the previously patched copy from the device once; and
+3. press `Cmd-R` again.
+
+The official App Store installation uses a different bundle identifier and is
+not affected.
 
 ### App Group entitlement warnings
 
 Messages such as `client is not entitled` are expected when the original app
-accesses capabilities owned by its vendor. They do not by themselves prove
-that the app crashed. App Group identifiers are redirected automatically when
-they are present in the input IPA's code-signing entitlements. If the decrypted
-export no longer contains readable entitlements, add only the required group
-identifiers to `Assets/Resources/IPAPatchLookinConfig.plist` as described
-above.
+accesses vendor-owned capabilities. They do not by themselves prove that the
+app crashed.
+
+App Group identifiers are redirected automatically when readable entitlements
+are present in the IPA. If the decrypted export no longer contains them, add
+only the groups required for inspection to
+`Assets/Resources/IPAPatchLookinConfig.plist`.
 
 `LookinServer - Will launch` confirms that the injected framework started.
 
-### Lookin closes the app while loading the hierarchy on iOS 26
+### `Terminated due to signal 9`
 
-LookinServer `1.2.8` normally captures some views with
-`drawViewHierarchyInRect:afterScreenUpdates:`. On iOS 26 that API can raise a
-UIKit hierarchy assertion for an otherwise valid app. The injected framework
-automatically installs an iOS 26 compatibility renderer that uses
-`CALayer.render(in:)` for Lookin screenshots instead.
+This is only the debugger's final termination message. Check the preceding
+exception and the device crash report. App Group warnings printed earlier are
+not sufficient evidence.
 
-The Xcode console prints
-`[IPAPatch-Lookin] Installed iOS 26 safe screenshot compatibility` when the
-workaround is active. Some GPU-backed or visual-effect content may have lower
-screenshot fidelity, but hierarchy inspection remains available.
-
-`Terminated due to signal 9` is only the debugger's final termination message.
-Use the preceding exception or the device crash report to identify the cause;
-App Group warnings printed earlier are not sufficient evidence. Many App Store
-builds also terminate themselves when they detect LLDB. The shared
-`IPAPatch-DummyApp` scheme therefore builds, installs, and launches without
-attaching a debugger by default, which is sufficient for Lookin inspection.
-Enable **Debug executable** under **Product → Scheme → Edit Scheme → Run →
-Info** only when the input app supports LLDB or you specifically need it.
+If the app stays open when launched directly but terminates after Xcode
+attaches, leave **Debug executable** disabled and use Lookin without LLDB.
 
 ## Limitations
 
-Re-signing does not transfer the original team's App Groups, CloudKit
-containers, push environment, associated domains, Sign in with Apple, keychain
-groups, or server-side authorization. App extensions, App Clips, and Watch
-content are removed to simplify signing. Features that depend on those
-capabilities may remain unavailable.
+Re-signing does not transfer the original developer's:
+
+- App Groups or CloudKit containers;
+- push environment;
+- associated domains;
+- Sign in with Apple configuration;
+- keychain access groups; or
+- server-side authorization.
+
+App extensions, App Clips, and Watch content are removed to simplify signing.
+Features that require those capabilities may remain unavailable.
+
+## Responsible use
+
+IPAPatch-Lookin is intended for interoperability research, debugging,
+education, and UI analysis of software you are permitted to inspect. You are
+responsible for complying with applicable law, licenses, platform terms, and
+the application owner's authorization.
+
+Do not commit or distribute third-party IPA files, credentials, provisioning
+profiles, account data, or proprietary application code.
 
 ## License and attribution
 
-IPAPatch-Lookin retains the original IPAPatch copyright and MIT license. See
-[LICENSE](LICENSE) and [README_UPSTREAM.md](README_UPSTREAM.md) for upstream
-attribution and third-party license notices.
+IPAPatch-Lookin is based on
+[Naituw/IPAPatch](https://github.com/Naituw/IPAPatch) and retains its MIT
+license and copyright notices.
+
+See [LICENSE](LICENSE) and [README_UPSTREAM.md](README_UPSTREAM.md) for
+upstream attribution and third-party notices.
