@@ -13,7 +13,7 @@ App 包，并为真机或兼容的模拟器重新签名。
 <p align="center">
   <img src="Docs/Media/lookin-youtube-demo.gif"
        alt="使用 Lookin 检查经过修补的 iOS App"
-       width="960">
+       width="720">
 </p>
 
 > [!IMPORTANT]
