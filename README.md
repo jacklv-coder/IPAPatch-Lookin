@@ -14,7 +14,7 @@ bundle, and re-signs it for a physical device or compatible Simulator.
 <p align="center">
   <img src="Docs/Media/lookin-youtube-demo.gif"
        alt="Inspecting a patched iOS app in Lookin"
-       width="960">
+       width="720">
 </p>
 
 > [!IMPORTANT]
