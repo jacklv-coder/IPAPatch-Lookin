@@ -30,27 +30,7 @@ PLATFORM="$1"
 TEMP_PATH="${TARGET_TEMP_DIR:-${SRCROOT}/Temp}/IPAPatchWork"
 OPTIONS_PATH="${SRCROOT}/Tools/options.plist"
 ASSETS_PATH="${SRCROOT}/Assets"
-LOCAL_CONFIGURATION_PATH="${SRCROOT}/.ipapatch-lookin.json"
-LOCAL_CONFIGURATION_LOCK_PATH="${LOCAL_CONFIGURATION_PATH}.lock"
-
 TARGET_IPA_PATH="${IPAPATCH_INPUT_IPA:-${ASSETS_PATH}/app.ipa}"
-if [ "$PLATFORM" != "Mac" ]; then
-    exec 9>"$LOCAL_CONFIGURATION_LOCK_PATH"
-    if ! /usr/bin/lockf -s -t 30 9; then
-        echo "error: Timed out waiting for the local IPA selection lock." >&2
-        echo "Wait for the other ./ipapatch-lookin or Xcode build to finish, then try again." >&2
-        exit 1
-    fi
-
-    TARGET_IPA_PATH="${IPAPATCH_INPUT_IPA:-}"
-    if [ -z "$TARGET_IPA_PATH" ] && [ -f "$LOCAL_CONFIGURATION_PATH" ]; then
-        TARGET_IPA_PATH=$(
-            /usr/bin/plutil -extract inputIPAPath raw "$LOCAL_CONFIGURATION_PATH" 2>/dev/null \
-                || true
-        )
-    fi
-    TARGET_IPA_PATH="${TARGET_IPA_PATH:-${ASSETS_PATH}/app.ipa}"
-fi
 TARGET_MAC_APP_PATH="${ASSETS_PATH}/macapp.app"
 FRAMEWORKS_TO_INJECT_PATH="${ASSETS_PATH}/Frameworks"
 RESOURCES_TO_INJECT_PATH="${ASSETS_PATH}/Resources"
@@ -181,7 +161,7 @@ echo "TARGET_BUNDLE_ID: $TARGET_BUNDLE_ID"
 
 if [ "$PLATFORM" != "Mac" ] && [ ! -s "$TARGET_IPA_PATH" ]; then
     echo "error: Missing decrypted IPA at $TARGET_IPA_PATH" >&2
-    echo "Run ./ipapatch-lookin run /path/to/app.ipa to prepare this Xcode project." >&2
+    echo "Run ./ipapatch-lookin run /path/to/app.ipa and build the generated project." >&2
     exit 1
 fi
 

@@ -1,5 +1,6 @@
 import Foundation
 import IPAPatchLookinCore
+import IPAPatchLookinProject
 
 struct ProjectContext {
     let root: URL
@@ -14,6 +15,10 @@ struct ProjectContext {
 
     var configurationStore: ConfigurationStore {
         ConfigurationStore(url: root.appendingPathComponent(".ipapatch-lookin.json"))
+    }
+
+    var projectGenerator: ProjectGenerator {
+        ProjectGenerator(repositoryRoot: root)
     }
 
     static func locate() throws -> ProjectContext {
@@ -68,25 +73,44 @@ enum PatchWorkflow {
         printInspection(inspection)
         try validateArchitecture(inspection)
 
-        try context.configurationStore.withPreparationLock {
-            try context.configurationStore.update { configuration in
-                configuration.inputIPAPath = ipaURL.path
-            }
-            print("Resolving LookinServer Swift Package")
-            try CommandRunner.run(
-                "/usr/bin/xcrun",
-                arguments: [
-                    "xcodebuild",
-                    "-resolvePackageDependencies",
-                    "-project",
-                    context.projectURL.path,
-                    "-scheme",
-                    "IPAPatch-DummyApp",
-                ],
-                currentDirectory: context.root,
-                captureOutput: false
+        let configuration = try context.configurationStore.load()
+        let prefix = try ConfigurationSupport.validateBundleIdentifier(
+            configuration.bundleIDPrefix
+                ?? ConfigurationSupport.defaultBundleIDPrefix()
+        )
+        let fingerprint = try ProjectGenerator.fingerprint(of: ipaURL)
+        let bundleIdentifier = try ConfigurationSupport.validateBundleIdentifier(
+            derivedBundleIdentifier(
+                prefix: prefix,
+                original: inspection.bundleIdentifier,
+                discriminator: fingerprint
+            )
+        )
+        let generatedProject = try context.configurationStore.withPreparationLock {
+            try context.projectGenerator.generate(
+                inspection: inspection,
+                fingerprint: fingerprint,
+                patchedBundleIdentifier: bundleIdentifier
             )
         }
+
+        print(generatedProject.wasCreated
+            ? "Created independent project for this IPA"
+            : "Reusing existing project for this IPA")
+        print("Resolving LookinServer Swift Package")
+        try CommandRunner.run(
+            "/usr/bin/xcrun",
+            arguments: [
+                "xcodebuild",
+                "-resolvePackageDependencies",
+                "-project",
+                generatedProject.projectURL.path,
+                "-scheme",
+                "IPAPatch-DummyApp",
+            ],
+            currentDirectory: generatedProject.directoryURL,
+            captureOutput: false
+        )
 
         let destinationInstruction: String
         switch inspection.platform {
@@ -99,7 +123,7 @@ enum PatchWorkflow {
 
         print("""
         Xcode project ready:
-          \(context.projectURL.path)
+          \(generatedProject.projectURL.path)
 
         Open it, select the IPAPatch-DummyApp scheme and
         \(destinationInstruction), then press Cmd-R.
@@ -124,7 +148,8 @@ enum PatchWorkflow {
             options.bundleIdentifier
                 ?? derivedBundleIdentifier(
                     prefix: prefix,
-                    original: inspection.bundleIdentifier
+                    original: inspection.bundleIdentifier,
+                    discriminator: nil
                 )
         )
         let derivedData = try resolveDerivedData(
@@ -468,12 +493,20 @@ enum PatchWorkflow {
             .appendingPathComponent("DerivedData", isDirectory: true)
     }
 
-    private static func derivedBundleIdentifier(prefix: String, original: String) -> String {
+    private static func derivedBundleIdentifier(
+        prefix: String,
+        original: String,
+        discriminator: String?
+    ) -> String {
         let slug = original.split(separator: ".").last.map(String.init) ?? "app"
         let safeSlug = slug.lowercased().map { character -> Character in
             character.isLetter || character.isNumber ? character : "-"
         }
-        return "\(prefix).\(String(safeSlug)).\(shortHash(original))"
+        let base = "\(prefix).\(String(safeSlug)).\(shortHash(original))"
+        if let discriminator {
+            return "\(base).\(discriminator)"
+        }
+        return base
     }
 
     private static func shortHash(_ string: String) -> String {

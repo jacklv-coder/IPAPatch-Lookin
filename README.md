@@ -45,7 +45,8 @@ cd IPAPatch-Lookin
 ./ipapatch-lookin run ~/Downloads/YourApp.ipa
 ```
 
-Then:
+`run` prints a path such as
+`Projects/YourApp-a1b2c3d4e5f6/IPAPatch.xcodeproj`. Then:
 
 1. open the printed `IPAPatch.xcodeproj` path;
 2. select the `IPAPatch-DummyApp` scheme;
@@ -62,12 +63,14 @@ No Ruby, Bundler, CocoaPods, or `.xcworkspace` is required. LookinServer
 You can also type `./ipapatch-lookin run ` (including the trailing space) and
 drag an IPA from Finder into Terminal.
 
-The IPA is read from its existing location. It is not copied into or committed
-with this repository.
+Each byte-distinct IPA gets its own Git-ignored project under `Projects/`. The
+input IPA is copied into that project with an APFS clone when available (and a
+normal copy otherwise), so the project remains usable if the original IPA is
+moved. Neither generated projects nor IPA files are committed.
 
 ## What you get
 
-- an Xcode project prepared for the selected decrypted IPA;
+- an independent Xcode project prepared for each decrypted IPA;
 - validation of encryption state, platform, and Mach-O architecture;
 - LookinServer embedded in the injected Debug framework;
 - automatic removal of extensions and root App Store metadata that cannot be
@@ -82,7 +85,7 @@ destination in Xcode. `deploy` performs the complete workflow from Terminal.
 | Workflow | Command | Result |
 | --- | --- | --- |
 | Inspect only | `./ipapatch-lookin inspect App.ipa` | Report platform, slices, and encryption state |
-| Xcode workflow | `./ipapatch-lookin run App.ipa` | Prepare the project for manual Xcode Run |
+| Xcode workflow | `./ipapatch-lookin run App.ipa` | Create or reuse an IPA-specific project for manual Xcode Run |
 | One-command deployment | `./ipapatch-lookin deploy App.ipa --device DEVICE --team TEAM_ID` | Build, install, and launch |
 
 ## Demo
@@ -128,6 +131,30 @@ cp ~/Downloads/YourApp.ipa Input/
 The repository tracks only `Input/.gitkeep`. IPA files below `Input/` are
 ignored by Git.
 
+## One project per IPA
+
+`run` identifies an IPA by its SHA-256 digest and creates a thin project at:
+
+```text
+Projects/<App-name>-<digest-prefix>/IPAPatch.xcodeproj
+```
+
+The generated directory owns its `Input/App.ipa`, resource overrides, bundle
+identifier, Xcode project, and `IPAPatchProject.json` manifest. Source code and
+build tools are linked to the shared repository, so generating multiple
+projects does not duplicate the implementation.
+
+Running `run` again with the exact same IPA reuses its project. A new version,
+or any other IPA whose bytes differ, gets a separate project and bundle
+identifier. Keep generated projects inside `Projects/`; their shared-code links
+are relative to the repository layout.
+
+List all generated projects with:
+
+```sh
+./ipapatch-lookin projects
+```
+
 ## One-time setup and command-line deployment
 
 `setup` resolves the Xcode package and saves reusable local preferences:
@@ -152,11 +179,13 @@ For a Simulator IPA:
 ./ipapatch-lookin deploy ~/Downloads/SimulatorApp.ipa
 ```
 
-Configuration is stored in the Git-ignored `.ipapatch-lookin.json`. Setup is
-optional; the same values can be passed directly to `deploy`.
+Deployment defaults are stored in the Git-ignored `.ipapatch-lookin.json`.
+Setup is optional; the same values can be passed directly to `deploy`. `run`
+stores IPA-specific settings in the generated project instead of selecting one
+repository-wide IPA.
 
-The CLI and Xcode build phase coordinate access to the configuration file with
-`.ipapatch-lookin.json.lock`. Concurrent preparations are serialized with
+CLI access to the deployment defaults is coordinated with
+`.ipapatch-lookin.json.lock`. Concurrent project generation is serialized with
 `.ipapatch-lookin.prepare.lock`.
 
 ## Commands
@@ -165,6 +194,7 @@ The CLI and Xcode build phase coordinate access to the configuration file with
 ./ipapatch-lookin setup [options]
 ./ipapatch-lookin inspect /path/to/App.ipa
 ./ipapatch-lookin run [/path/to/App.ipa]
+./ipapatch-lookin projects
 ./ipapatch-lookin deploy [/path/to/App.ipa] [options]
 ./ipapatch-lookin devices
 ./ipapatch-lookin simulators
@@ -210,7 +240,8 @@ Xcode does not link the IPA as a library. The original application remains an
 ```mermaid
 flowchart LR
     IPA["Authorized decrypted IPA"] --> Validate["Validate platform, slices, and cryptid"]
-    Validate --> Xcode["Build IPAPatchFramework in Xcode"]
+    Validate --> Generate["Create or reuse the IPA-specific project"]
+    Generate --> Xcode["Build IPAPatchFramework in Xcode"]
     Lookin["LookinServer Swift Package"] --> Xcode
     Xcode --> Inject["Copy framework and insert LC_LOAD_DYLIB"]
     Inject --> Prepare["Remove incompatible extensions and metadata"]
@@ -220,7 +251,8 @@ flowchart LR
 ```
 
 Before Xcode builds, the CLI validates the selected IPA's encryption state,
-platform, and architecture. During the Xcode build:
+platform, and architecture and generates its independent project. During the
+Xcode build:
 
 1. the selected IPA is extracted;
 2. Xcode compiles `IPAPatchFramework` with LookinServer in Debug builds;
@@ -245,8 +277,8 @@ entitlements. It generates sandbox-local redirects inside the patched app
 rather than hardcoding identifiers from a particular vendor in this
 repository.
 
-You can override a generated destination or add app-specific defaults in
-`Assets/Resources/IPAPatchLookinConfig.plist`:
+You can override a generated destination or add app-specific defaults in the
+generated project's `Assets/Resources/IPAPatchLookinConfig.plist`:
 
 ```xml
 <key>AppGroupRedirects</key>
@@ -304,14 +336,16 @@ installation, and launch.
 
 ### `Missing decrypted IPA at .../Assets/app.ipa`
 
-Prepare the current checkout before building:
+Generate or reuse the IPA-specific project before building:
 
 ```sh
 ./ipapatch-lookin run /absolute/path/to/App.ipa
 ```
 
-The selected path is local to the checkout. If the IPA was moved or deleted,
-run the command again with its new path.
+Open the project path printed by that command rather than the repository-root
+project. The generated project owns its `Input/App.ipa`; moving the original
+IPA does not invalidate it. If the generated copy was removed or changed, run
+the command again to verify and repair it without replacing project settings.
 
 ### `App Extensions must be prefixed with the main bundle identifier`
 
@@ -337,7 +371,7 @@ app crashed.
 
 App Group identifiers are redirected automatically when readable entitlements
 are present in the IPA. If the decrypted export no longer contains them, add
-only the groups required for inspection to
+only the groups required for inspection to the generated project's
 `Assets/Resources/IPAPatchLookinConfig.plist`.
 
 `LookinServer - Will launch` confirms that the injected framework started.

@@ -1,0 +1,4 @@
+// Default settings for the repository template. Generated projects replace
+// this file with their own immutable IPA path and unique bundle identifier.
+IPAPATCH_INPUT_IPA =
+IPAPATCH_PRODUCT_BUNDLE_IDENTIFIER = com.example.ipapatchlookin.host
