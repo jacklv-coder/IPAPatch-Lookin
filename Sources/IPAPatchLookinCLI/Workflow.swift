@@ -65,6 +65,8 @@ struct RunOptions {
 }
 
 enum PatchWorkflow {
+    private static let lookinServerVersion = "1.2.8"
+
     static func prepare(input: String?, context: ProjectContext) throws {
         let ipaURL = try resolveInput(input, in: context)
 
@@ -94,40 +96,28 @@ enum PatchWorkflow {
             )
         }
 
-        print(generatedProject.wasCreated
-            ? "Created independent project for this IPA"
-            : "Reusing existing project for this IPA")
-        print("Resolving LookinServer Swift Package")
+        print("Resolving LookinServer \(lookinServerVersion)...")
         try CommandRunner.run(
             "/usr/bin/xcrun",
             arguments: [
                 "xcodebuild",
+                "-quiet",
                 "-resolvePackageDependencies",
                 "-project",
                 generatedProject.projectURL.path,
                 "-scheme",
                 "IPAPatch-DummyApp",
             ],
-            currentDirectory: generatedProject.directoryURL,
-            captureOutput: false
+            currentDirectory: generatedProject.directoryURL
         )
-
-        let destinationInstruction: String
-        switch inspection.platform {
-        case .device:
-            destinationInstruction = "a connected physical iPhone or iPad"
-        case .simulator:
-            destinationInstruction =
-                "an iOS Simulator matching \(inspection.architectures.joined(separator: ", "))"
-        }
-
-        print("""
-        Xcode project ready:
-          \(generatedProject.projectURL.path)
-
-        Open it, select the IPAPatch-DummyApp scheme and
-        \(destinationInstruction), then press Cmd-R.
-        """)
+        print("LookinServer \(lookinServerVersion) ready.\n")
+        print(ProjectReadyMessage.text(
+            appName: inspection.appName,
+            projectURL: generatedProject.projectURL,
+            wasCreated: generatedProject.wasCreated,
+            platform: inspection.platform,
+            architectures: inspection.architectures
+        ))
     }
 
     static func deploy(options: RunOptions, context: ProjectContext) throws {
@@ -516,5 +506,49 @@ enum PatchWorkflow {
             hash &*= 0x0000_0100_0000_01b3
         }
         return String(format: "%012llx", hash & 0x0000_ffff_ffff_ffff)
+    }
+}
+
+struct ProjectReadyMessage {
+    static func text(
+        appName: String,
+        projectURL: URL,
+        wasCreated: Bool,
+        platform: IPAPlatform,
+        architectures: [String]
+    ) -> String {
+        let status = wasCreated ? "Created" : "Reused existing"
+        let steps: [String]
+        switch platform {
+        case .device:
+            steps = [
+                "Open the project above.",
+                "Select the IPAPatch-DummyApp scheme.",
+                "Select your Apple Development Team in Signing & Capabilities.",
+                "Select a connected iPhone or iPad.",
+                "Press Cmd-R.",
+            ]
+        case .simulator:
+            let architectureList = architectures.joined(separator: ", ")
+            steps = [
+                "Open the project above.",
+                "Select the IPAPatch-DummyApp scheme.",
+                "Select an iOS Simulator matching \(architectureList).",
+                "Press Cmd-R.",
+            ]
+        }
+        let numberedSteps = steps.enumerated().map { index, step in
+            "  \(index + 1). \(step)"
+        }.joined(separator: "\n")
+
+        return """
+        \(status) Xcode project for \(appName):
+          \(projectURL.path)
+
+        Next:
+        \(numberedSteps)
+
+        No device is required while generating the project.
+        """
     }
 }

@@ -27,11 +27,15 @@ public struct CommandFailure: LocalizedError, Sendable {
     public let executable: String
     public let arguments: [String]
     public let exitCode: Int32
+    public let standardOutput: String
     public let standardError: String
 
     public var errorDescription: String? {
         let command = ([executable] + arguments).joined(separator: " ")
-        let detail = standardError.trimmingCharacters(in: .whitespacesAndNewlines)
+        let detail = [standardError, standardOutput]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
         if detail.isEmpty {
             return "Command failed with exit code \(exitCode): \(command)"
         }
@@ -112,6 +116,7 @@ public enum CommandRunner {
                 executable: executable,
                 arguments: arguments,
                 exitCode: result.exitCode,
+                standardOutput: result.standardOutput,
                 standardError: result.standardError
             )
         }
