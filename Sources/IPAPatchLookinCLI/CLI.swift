@@ -62,7 +62,7 @@ private struct ParsedArguments {
 }
 
 enum CLI {
-    static let version = "0.4.1"
+    static let version = "0.4.2"
 
     static func run(arguments: [String]) throws {
         let context = try ProjectContext.locate()
