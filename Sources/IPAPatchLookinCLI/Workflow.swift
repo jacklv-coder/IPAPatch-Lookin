@@ -460,7 +460,7 @@ enum PatchWorkflow {
         guard candidates.count == 1, let ipa = candidates.first else {
             if candidates.isEmpty {
                 throw CLIError(
-                    "No IPA was provided. Drag one after `./ipapatch-lookin run` "
+                    "No IPA was provided. Drag one after `./ipapatch-lookin` "
                         + "or place exactly one .ipa in \(context.inputDirectory.path)."
                 )
             }

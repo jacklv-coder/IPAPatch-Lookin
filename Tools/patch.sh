@@ -161,7 +161,7 @@ echo "TARGET_BUNDLE_ID: $TARGET_BUNDLE_ID"
 
 if [ "$PLATFORM" != "Mac" ] && [ ! -s "$TARGET_IPA_PATH" ]; then
     echo "error: Missing decrypted IPA at $TARGET_IPA_PATH" >&2
-    echo "Run ./ipapatch-lookin run /path/to/app.ipa and build the generated project." >&2
+    echo "Run ./ipapatch-lookin /path/to/app.ipa and build the generated project." >&2
     exit 1
 fi
 

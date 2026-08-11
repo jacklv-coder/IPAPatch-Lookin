@@ -62,12 +62,13 @@ private struct ParsedArguments {
 }
 
 enum CLI {
-    static let version = "0.4.0"
+    static let version = "0.4.1"
 
     static func run(arguments: [String]) throws {
         let context = try ProjectContext.locate()
-        let command = arguments.first ?? "help"
-        let remaining = Array(arguments.dropFirst())
+        let invocation = CLIInvocation(arguments: arguments)
+        let command = invocation.command
+        let remaining = invocation.remaining
 
         switch command {
         case "help", "--help", "-h":
@@ -214,6 +215,7 @@ enum CLI {
     IPAPatch-Lookin \(version)
 
     Usage:
+      ./ipapatch-lookin /path/to/app.ipa
       ./ipapatch-lookin setup [options]
       ./ipapatch-lookin inspect /path/to/app.ipa
       ./ipapatch-lookin run [/path/to/app.ipa]
@@ -238,9 +240,32 @@ enum CLI {
       --build-only                  Build and verify without installing
       --no-launch                   Install without launching
 
-    `run` creates or reuses one Xcode project per IPA for manual Xcode Run.
+    Passing an IPA directly is shorthand for `run` and creates or reuses its Xcode project.
     `deploy` builds, installs, and launches from the command line.
-    If no IPA path is given, either command uses the only .ipa file in Input/.
+    With no IPA path, `run` and `deploy` use the only .ipa file in Input/.
     Only decrypted IPAs you own or are authorized to inspect are supported.
     """
+}
+
+struct CLIInvocation: Equatable {
+    let command: String
+    let remaining: [String]
+
+    init(arguments: [String]) {
+        guard let first = arguments.first else {
+            command = "help"
+            remaining = []
+            return
+        }
+
+        let expanded = NSString(string: first).expandingTildeInPath as NSString
+        if !first.hasPrefix("-"),
+           expanded.pathExtension.caseInsensitiveCompare("ipa") == .orderedSame {
+            command = "run"
+            remaining = arguments
+        } else {
+            command = first
+            remaining = Array(arguments.dropFirst())
+        }
+    }
 }
