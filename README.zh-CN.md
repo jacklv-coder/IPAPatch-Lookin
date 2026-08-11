@@ -39,10 +39,10 @@ IPA 与 Mach-O 校验、适配现代签名流程的清理、自动 App Group 重
 ```sh
 git clone git@github.com:jacklv-coder/IPAPatch-Lookin.git
 cd IPAPatch-Lookin
-./ipapatch-lookin run ~/Downloads/YourApp.ipa
+./ipapatch-lookin ~/Downloads/YourApp.ipa
 ```
 
-`run` 会输出类似
+该命令会输出类似
 `Projects/YourApp-a1b2c3d4e5f6/IPAPatch.xcodeproj` 的路径。然后：
 
 1. 打开命令输出的 `IPAPatch.xcodeproj` 路径；
@@ -57,7 +57,7 @@ cd IPAPatch-Lookin
 项目不需要 Ruby、Bundler、CocoaPods 或 `.xcworkspace`。LookinServer
 `1.2.8` 已锁定版本，并通过 Xcode Swift Package Manager 解析。
 
-你也可以在终端输入 `./ipapatch-lookin run `（末尾保留一个空格），然后从 Finder
+你也可以在终端输入 `./ipapatch-lookin `（末尾保留一个空格），然后从 Finder
 拖入 IPA。
 
 每个内容不同的 IPA 都会在 `Projects/` 下拥有独立且被 Git 忽略的工程。输入 IPA
@@ -74,13 +74,13 @@ cd IPAPatch-Lookin
 - 适配 iOS 26 的安全 Lookin 截图实现；
 - 可选的命令行构建、安装和启动流程。
 
-当你希望在 Xcode 中自行选择签名和运行设备时，`run` 是最方便的工作流。`deploy`
-会在终端中执行完整流程。
+当你希望在 Xcode 中自行选择签名和运行设备时，直接传入 IPA 是最方便的工作流。
+原有的 `run App.ipa` 写法仍然保留，行为完全一致。`deploy` 会在终端中执行完整流程。
 
 | 工作流 | 命令 | 结果 |
 | --- | --- | --- |
 | 仅检查 | `./ipapatch-lookin inspect App.ipa` | 输出平台、架构切片和加密状态 |
-| Xcode 工作流 | `./ipapatch-lookin run App.ipa` | 创建或复用用于手动运行的 IPA 专属工程 |
+| Xcode 工作流 | `./ipapatch-lookin App.ipa` | 创建或复用用于手动运行的 IPA 专属工程 |
 | 一条命令部署 | `./ipapatch-lookin deploy App.ipa --device DEVICE --team TEAM_ID` | 构建、安装并启动 |
 
 ## 演示
@@ -124,7 +124,8 @@ cp ~/Downloads/YourApp.ipa Input/
 
 ## 每个 IPA 一个工程
 
-`run` 使用 IPA 的 SHA-256 摘要识别文件，并在以下位置创建轻量工程：
+直接传入 IPA 和 `run` 都会使用 IPA 的 SHA-256 摘要识别文件，并在以下位置创建
+轻量工程：
 
 ```text
 Projects/<App名称>-<摘要前缀>/IPAPatch.xcodeproj
@@ -134,9 +135,9 @@ Projects/<App名称>-<摘要前缀>/IPAPatch.xcodeproj
 `IPAPatchProject.json` 清单。源码与构建工具仍链接到共享仓库，因此多个工程不会重复
 保存实现代码。
 
-再次对完全相同的 IPA 执行 `run` 会复用已有工程。新版本或任何字节内容不同的 IPA
-都会获得独立工程和 Bundle Identifier。请将生成工程保留在 `Projects/` 下，因为其中
-指向共享代码的链接依赖仓库的相对目录结构。
+再次传入完全相同的 IPA 会复用已有工程。新版本或任何字节内容不同的 IPA 都会获得
+独立工程和 Bundle Identifier。请将生成工程保留在 `Projects/` 下，因为其中指向
+共享代码的链接依赖仓库的相对目录结构。
 
 可以列出所有生成工程：
 
@@ -178,6 +179,7 @@ CLI 通过 `.ipapatch-lookin.json.lock` 协调对部署默认值的访问；并�
 ## 命令
 
 ```text
+./ipapatch-lookin /path/to/App.ipa
 ./ipapatch-lookin setup [options]
 ./ipapatch-lookin inspect /path/to/App.ipa
 ./ipapatch-lookin run [/path/to/App.ipa]
@@ -208,7 +210,8 @@ CLI 通过 `.ipapatch-lookin.json.lock` 协调对部署默认值的访问；并�
 
 ## 真机与模拟器行为
 
-`run` 只准备 Xcode 工程，不会选择或要求运行目标。`deploy` 的行为如下：
+直接传入 IPA 和 `run` 都只准备 Xcode 工程，不会选择或要求运行目标。`deploy` 的
+行为如下：
 
 | IPA 平台 | 运行目标 | 签名 |
 | --- | --- | --- |
@@ -308,8 +311,8 @@ Scheme 默认启动时不附加 LLDB，这足以用于 Lookin 检查。
 
 ### `Physical device "iPhone" is unavailable`
 
-`run` 不要求连接真机。重新运行它，打开输出的 `IPAPatch.xcodeproj`，然后在 Xcode
-中选择运行目标。
+生成工程不要求连接真机。重新传入 IPA，打开输出的 `IPAPatch.xcodeproj`，然后在
+Xcode 中选择运行目标。
 
 只有需要从命令行完成设备发现、构建、安装和启动时才使用 `deploy`。
 
@@ -318,7 +321,7 @@ Scheme 默认启动时不附加 LLDB，这足以用于 Lookin 检查。
 构建之前，先生成或复用 IPA 专属工程：
 
 ```sh
-./ipapatch-lookin run /absolute/path/to/App.ipa
+./ipapatch-lookin /absolute/path/to/App.ipa
 ```
 
 请打开该命令输出的工程路径，而不是仓库根目录的工程。生成工程会保存自己的

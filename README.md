@@ -42,10 +42,10 @@ Clone the repository and point it at a decrypted IPA:
 ```sh
 git clone git@github.com:jacklv-coder/IPAPatch-Lookin.git
 cd IPAPatch-Lookin
-./ipapatch-lookin run ~/Downloads/YourApp.ipa
+./ipapatch-lookin ~/Downloads/YourApp.ipa
 ```
 
-`run` prints a path such as
+The command prints a path such as
 `Projects/YourApp-a1b2c3d4e5f6/IPAPatch.xcodeproj`. Then:
 
 1. open the printed `IPAPatch.xcodeproj` path;
@@ -60,7 +60,7 @@ app. Its display name is prefixed with `🔬 `.
 No Ruby, Bundler, CocoaPods, or `.xcworkspace` is required. LookinServer
 `1.2.8` is pinned and resolved with Xcode Swift Package Manager.
 
-You can also type `./ipapatch-lookin run ` (including the trailing space) and
+You can also type `./ipapatch-lookin ` (including the trailing space) and
 drag an IPA from Finder into Terminal.
 
 Each byte-distinct IPA gets its own Git-ignored project under `Projects/`. The
@@ -79,13 +79,15 @@ moved. Neither generated projects nor IPA files are committed.
 - an iOS 26-safe Lookin screenshot renderer; and
 - optional command-line build, install, and launch.
 
-`run` is the most convenient workflow when you want to choose signing and the
-destination in Xcode. `deploy` performs the complete workflow from Terminal.
+Passing the IPA directly is the most convenient workflow when you want to
+choose signing and the destination in Xcode. The explicit `run App.ipa` form
+remains available and behaves identically. `deploy` performs the complete
+workflow from Terminal.
 
 | Workflow | Command | Result |
 | --- | --- | --- |
 | Inspect only | `./ipapatch-lookin inspect App.ipa` | Report platform, slices, and encryption state |
-| Xcode workflow | `./ipapatch-lookin run App.ipa` | Create or reuse an IPA-specific project for manual Xcode Run |
+| Xcode workflow | `./ipapatch-lookin App.ipa` | Create or reuse an IPA-specific project for manual Xcode Run |
 | One-command deployment | `./ipapatch-lookin deploy App.ipa --device DEVICE --team TEAM_ID` | Build, install, and launch |
 
 ## Demo
@@ -133,7 +135,8 @@ ignored by Git.
 
 ## One project per IPA
 
-`run` identifies an IPA by its SHA-256 digest and creates a thin project at:
+The direct IPA form and `run` identify an IPA by its SHA-256 digest and create
+a thin project at:
 
 ```text
 Projects/<App-name>-<digest-prefix>/IPAPatch.xcodeproj
@@ -144,10 +147,10 @@ identifier, Xcode project, and `IPAPatchProject.json` manifest. Source code and
 build tools are linked to the shared repository, so generating multiple
 projects does not duplicate the implementation.
 
-Running `run` again with the exact same IPA reuses its project. A new version,
-or any other IPA whose bytes differ, gets a separate project and bundle
-identifier. Keep generated projects inside `Projects/`; their shared-code links
-are relative to the repository layout.
+Passing the exact same IPA again reuses its project. A new version, or any
+other IPA whose bytes differ, gets a separate project and bundle identifier.
+Keep generated projects inside `Projects/`; their shared-code links are
+relative to the repository layout.
 
 List all generated projects with:
 
@@ -191,6 +194,7 @@ CLI access to the deployment defaults is coordinated with
 ## Commands
 
 ```text
+./ipapatch-lookin /path/to/App.ipa
 ./ipapatch-lookin setup [options]
 ./ipapatch-lookin inspect /path/to/App.ipa
 ./ipapatch-lookin run [/path/to/App.ipa]
@@ -221,8 +225,8 @@ To build and verify a device IPA without signing or connecting a device:
 
 ## Device and Simulator behavior
 
-The `run` command prepares Xcode but does not select or require a destination.
-For `deploy`, the behavior is:
+The direct IPA form and `run` prepare Xcode but do not select or require a
+destination. For `deploy`, the behavior is:
 
 | IPA platform | Destination | Signing |
 | --- | --- | --- |
@@ -328,8 +332,8 @@ Info** only when the input app supports LLDB or you specifically need it.
 
 ### `Physical device "iPhone" is unavailable`
 
-`run` does not require a connected device. Run it again, open the printed
-`IPAPatch.xcodeproj`, and select a destination in Xcode.
+Project generation does not require a connected device. Pass the IPA again,
+open the printed `IPAPatch.xcodeproj`, and select a destination in Xcode.
 
 Use `deploy` only when you want command-line device discovery, building,
 installation, and launch.
@@ -339,7 +343,7 @@ installation, and launch.
 Generate or reuse the IPA-specific project before building:
 
 ```sh
-./ipapatch-lookin run /absolute/path/to/App.ipa
+./ipapatch-lookin /absolute/path/to/App.ipa
 ```
 
 Open the project path printed by that command rather than the repository-root

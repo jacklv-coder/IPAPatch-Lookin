@@ -47,5 +47,9 @@ let package = Package(
                 "IPAPatchLookinProject",
             ]
         ),
+        .testTarget(
+            name: "IPAPatchLookinCLITests",
+            dependencies: ["IPAPatchLookinCLI"]
+        ),
     ]
 )
