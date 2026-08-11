@@ -1,5 +1,6 @@
 import Foundation
 import IPAPatchLookinCore
+import IPAPatchLookinProject
 
 struct CLIError: LocalizedError {
     let message: String
@@ -61,7 +62,7 @@ private struct ParsedArguments {
 }
 
 enum CLI {
-    static let version = "0.3.0"
+    static let version = "0.4.0"
 
     static func run(arguments: [String]) throws {
         let context = try ProjectContext.locate()
@@ -101,6 +102,23 @@ enum CLI {
             print(simulators.isEmpty
                 ? "No iOS Simulator was found."
                 : DestinationDiscovery.simulatorList(simulators))
+        case "projects":
+            guard remaining.isEmpty else {
+                throw CLIError("usage: ./ipapatch-lookin projects")
+            }
+            let projects = try context.projectGenerator.projects()
+            if projects.isEmpty {
+                print("No generated IPA projects were found.")
+            } else {
+                for project in projects {
+                    print("""
+                    \(project.manifest.appName)
+                      source bundle id: \(project.manifest.originalBundleIdentifier)
+                      patched bundle id: \(project.manifest.patchedBundleIdentifier)
+                      project: \(project.projectURL.path)
+                    """)
+                }
+            }
         case "setup":
             try setup(arguments: remaining, context: context)
         case "run":
@@ -200,6 +218,7 @@ enum CLI {
       ./ipapatch-lookin inspect /path/to/app.ipa
       ./ipapatch-lookin run [/path/to/app.ipa]
       ./ipapatch-lookin deploy [/path/to/app.ipa] [options]
+      ./ipapatch-lookin projects
       ./ipapatch-lookin devices
       ./ipapatch-lookin simulators
 
@@ -219,7 +238,7 @@ enum CLI {
       --build-only                  Build and verify without installing
       --no-launch                   Install without launching
 
-    `run` prepares IPAPatch.xcodeproj for manual device selection in Xcode.
+    `run` creates or reuses one Xcode project per IPA for manual Xcode Run.
     `deploy` builds, installs, and launches from the command line.
     If no IPA path is given, either command uses the only .ipa file in Input/.
     Only decrypted IPAs you own or are authorized to inspect are supported.

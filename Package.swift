@@ -12,6 +12,10 @@ let package = Package(
             name: "IPAPatchLookinCore",
             targets: ["IPAPatchLookinCore"]
         ),
+        .library(
+            name: "IPAPatchLookinProject",
+            targets: ["IPAPatchLookinProject"]
+        ),
         .executable(
             name: "ipapatch-lookin",
             targets: ["IPAPatchLookinCLI"]
@@ -21,13 +25,27 @@ let package = Package(
         .target(
             name: "IPAPatchLookinCore"
         ),
+        .target(
+            name: "IPAPatchLookinProject",
+            dependencies: ["IPAPatchLookinCore"]
+        ),
         .executableTarget(
             name: "IPAPatchLookinCLI",
-            dependencies: ["IPAPatchLookinCore"]
+            dependencies: [
+                "IPAPatchLookinCore",
+                "IPAPatchLookinProject",
+            ]
         ),
         .testTarget(
             name: "IPAPatchLookinCoreTests",
             dependencies: ["IPAPatchLookinCore"]
+        ),
+        .testTarget(
+            name: "IPAPatchLookinProjectTests",
+            dependencies: [
+                "IPAPatchLookinCore",
+                "IPAPatchLookinProject",
+            ]
         ),
     ]
 )

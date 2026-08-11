@@ -10,6 +10,8 @@ Product/
 /.swiftpm/
 /Input/*
 !/Input/.gitkeep
+/Projects/*
+!/Projects/.gitkeep
 
 # Legacy dependency artifacts from older revisions
 /.bundle/

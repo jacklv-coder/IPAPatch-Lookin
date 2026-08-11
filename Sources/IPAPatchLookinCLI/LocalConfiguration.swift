@@ -10,7 +10,6 @@ struct LocalConfiguration: Codable {
     var bundleIDPrefix: String?
     var device: String?
     var simulator: String?
-    var inputIPAPath: String?
 }
 
 struct ConfigurationStore {

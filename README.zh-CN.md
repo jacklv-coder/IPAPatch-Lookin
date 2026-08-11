@@ -42,7 +42,8 @@ cd IPAPatch-Lookin
 ./ipapatch-lookin run ~/Downloads/YourApp.ipa
 ```
 
-然后：
+`run` 会输出类似
+`Projects/YourApp-a1b2c3d4e5f6/IPAPatch.xcodeproj` 的路径。然后：
 
 1. 打开命令输出的 `IPAPatch.xcodeproj` 路径；
 2. 选择 `IPAPatch-DummyApp` Scheme；
@@ -59,11 +60,13 @@ cd IPAPatch-Lookin
 你也可以在终端输入 `./ipapatch-lookin run `（末尾保留一个空格），然后从 Finder
 拖入 IPA。
 
-工具会直接读取 IPA 当前所在的位置，不会把它复制到本仓库，也不会提交它。
+每个内容不同的 IPA 都会在 `Projects/` 下拥有独立且被 Git 忽略的工程。输入 IPA
+会优先通过 APFS Clone 复制到工程中，不支持时再使用普通复制。因此即使原 IPA 被移动，
+生成的工程仍可使用；生成工程和 IPA 都不会被提交。
 
 ## 你会得到什么
 
-- 一个已为所选解密 IPA 准备好的 Xcode 工程；
+- 每个已解密 IPA 对应一个独立的 Xcode 工程；
 - 对加密状态、平台和 Mach-O 架构的校验；
 - 嵌入注入用 Debug 框架的 LookinServer；
 - 自动删除无法安全重新签名的扩展和 App 根目录 App Store 元数据；
@@ -77,7 +80,7 @@ cd IPAPatch-Lookin
 | 工作流 | 命令 | 结果 |
 | --- | --- | --- |
 | 仅检查 | `./ipapatch-lookin inspect App.ipa` | 输出平台、架构切片和加密状态 |
-| Xcode 工作流 | `./ipapatch-lookin run App.ipa` | 准备用于手动运行的 Xcode 工程 |
+| Xcode 工作流 | `./ipapatch-lookin run App.ipa` | 创建或复用用于手动运行的 IPA 专属工程 |
 | 一条命令部署 | `./ipapatch-lookin deploy App.ipa --device DEVICE --team TEAM_ID` | 构建、安装并启动 |
 
 ## 演示
@@ -119,6 +122,28 @@ cp ~/Downloads/YourApp.ipa Input/
 
 仓库只跟踪 `Input/.gitkeep`，`Input/` 下的 IPA 文件会被 Git 忽略。
 
+## 每个 IPA 一个工程
+
+`run` 使用 IPA 的 SHA-256 摘要识别文件，并在以下位置创建轻量工程：
+
+```text
+Projects/<App名称>-<摘要前缀>/IPAPatch.xcodeproj
+```
+
+生成目录独立保存自己的 `Input/App.ipa`、资源覆盖、Bundle Identifier、Xcode 工程和
+`IPAPatchProject.json` 清单。源码与构建工具仍链接到共享仓库，因此多个工程不会重复
+保存实现代码。
+
+再次对完全相同的 IPA 执行 `run` 会复用已有工程。新版本或任何字节内容不同的 IPA
+都会获得独立工程和 Bundle Identifier。请将生成工程保留在 `Projects/` 下，因为其中
+指向共享代码的链接依赖仓库的相对目录结构。
+
+可以列出所有生成工程：
+
+```sh
+./ipapatch-lookin projects
+```
+
 ## 一次性设置与命令行部署
 
 `setup` 会解析 Xcode Package 并保存可复用的本地配置：
@@ -143,11 +168,12 @@ cp ~/Downloads/YourApp.ipa Input/
 ./ipapatch-lookin deploy ~/Downloads/SimulatorApp.ipa
 ```
 
-配置保存在被 Git 忽略的 `.ipapatch-lookin.json` 中。`setup` 不是必需步骤，相同参数
-也可以直接传给 `deploy`。
+部署默认值保存在被 Git 忽略的 `.ipapatch-lookin.json` 中。`setup` 不是必需步骤，
+相同参数也可以直接传给 `deploy`。`run` 会把 IPA 专属配置写入生成工程，不再选择一个
+仓库级的共享 IPA。
 
-CLI 和 Xcode 构建阶段通过 `.ipapatch-lookin.json.lock` 协调对配置文件的访问；
-并发准备操作则通过 `.ipapatch-lookin.prepare.lock` 串行执行。
+CLI 通过 `.ipapatch-lookin.json.lock` 协调对部署默认值的访问；并发生成工程则通过
+`.ipapatch-lookin.prepare.lock` 串行执行。
 
 ## 命令
 
@@ -155,6 +181,7 @@ CLI 和 Xcode 构建阶段通过 `.ipapatch-lookin.json.lock` 协调对配置文
 ./ipapatch-lookin setup [options]
 ./ipapatch-lookin inspect /path/to/App.ipa
 ./ipapatch-lookin run [/path/to/App.ipa]
+./ipapatch-lookin projects
 ./ipapatch-lookin deploy [/path/to/App.ipa] [options]
 ./ipapatch-lookin devices
 ./ipapatch-lookin simulators
@@ -198,7 +225,8 @@ Xcode 不会把 IPA 当作动态库链接。原 App 始终保留为 `MH_EXECUTE`
 ```mermaid
 flowchart LR
     IPA["经过授权的已解密 IPA"] --> Validate["校验平台、架构切片和 cryptid"]
-    Validate --> Xcode["在 Xcode 中构建 IPAPatchFramework"]
+    Validate --> Generate["创建或复用 IPA 专属工程"]
+    Generate --> Xcode["在 Xcode 中构建 IPAPatchFramework"]
     Lookin["LookinServer Swift Package"] --> Xcode
     Xcode --> Inject["复制框架并插入 LC_LOAD_DYLIB"]
     Inject --> Prepare["删除不兼容的扩展和元数据"]
@@ -207,7 +235,8 @@ flowchart LR
     Launch --> Inspect["在 macOS Lookin 中检查"]
 ```
 
-Xcode 构建之前，CLI 会校验所选 IPA 的加密状态、平台和架构。Xcode 构建过程中：
+Xcode 构建之前，CLI 会校验所选 IPA 的加密状态、平台和架构，并生成其独立工程。
+Xcode 构建过程中：
 
 1. 解压所选 IPA；
 2. Xcode 使用 LookinServer 编译 Debug 版本的 `IPAPatchFramework`；
@@ -230,8 +259,8 @@ Xcode 构建之前，CLI 会校验所选 IPA 的加密状态、平台和架构�
 `com.apple.security.application-groups`。它会在修补后 App 的沙盒内生成本地
 重定向，而不是在仓库中写死某个厂商的标识符。
 
-你可以在 `Assets/Resources/IPAPatchLookinConfig.plist` 中覆盖自动生成的目标，
-或者添加 App 专用的默认值：
+你可以在生成工程的 `Assets/Resources/IPAPatchLookinConfig.plist` 中覆盖自动生成的
+目标，或者添加 App 专用的默认值：
 
 ```xml
 <key>AppGroupRedirects</key>
@@ -286,13 +315,15 @@ Scheme 默认启动时不附加 LLDB，这足以用于 Lookin 检查。
 
 ### `Missing decrypted IPA at .../Assets/app.ipa`
 
-构建之前，先为当前仓库指定 IPA：
+构建之前，先生成或复用 IPA 专属工程：
 
 ```sh
 ./ipapatch-lookin run /absolute/path/to/App.ipa
 ```
 
-所选路径只保存在当前工作区。如果 IPA 被移动或删除，请使用新路径重新执行命令。
+请打开该命令输出的工程路径，而不是仓库根目录的工程。生成工程会保存自己的
+`Input/App.ipa`，移动原 IPA 不会使它失效；如果生成副本被删除或更改，请重新执行命令
+校验并修复它，已有工程设置不会被替换。
 
 ### `App Extensions must be prefixed with the main bundle identifier`
 
@@ -314,7 +345,7 @@ Scheme 默认启动时不附加 LLDB，这足以用于 Lookin 检查。
 这些日志本身不能证明 App 已经崩溃。
 
 如果 IPA 中仍有可读取的签名权限，工具会自动重定向 App Group 标识符。如果解密导出
-文件中已不再包含这些权限，只需将分析所需的 App Group 添加到
+文件中已不再包含这些权限，只需将分析所需的 App Group 添加到生成工程的
 `Assets/Resources/IPAPatchLookinConfig.plist`。
 
 `LookinServer - Will launch` 表示注入框架已经启动。
