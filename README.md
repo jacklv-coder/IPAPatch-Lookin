@@ -41,12 +41,19 @@ documentation is preserved in [README_UPSTREAM.md](README_UPSTREAM.md).
 
 ## Quick start
 
-Clone the repository and point it at a decrypted IPA:
+Clone the repository over SSH and point it at a decrypted IPA:
+
+```sh
+git clone git@github.com:jacklv-coder/IPAPatch-Lookin.git
+cd IPAPatch-Lookin
+./ipapatch-lookin ~/Downloads/YourApp.ipa
+```
+
+If you have not configured a GitHub SSH key, use the public HTTPS clone URL
+instead:
 
 ```sh
 git clone https://github.com/jacklv-coder/IPAPatch-Lookin.git
-cd IPAPatch-Lookin
-./ipapatch-lookin ~/Downloads/YourApp.ipa
 ```
 
 The command prints a path such as
