@@ -76,6 +76,12 @@ public enum CommandRunner {
         process.standardInput = FileHandle.standardInput
 
         try process.run()
+        if captureOutput {
+            // Process duplicates these descriptors for the child. Close the
+            // parent's copies so the readers observe EOF when the child exits.
+            outputPipe.fileHandleForWriting.closeFile()
+            errorPipe.fileHandleForWriting.closeFile()
+        }
 
         let readGroup = DispatchGroup()
         let capturedOutput = CapturedData()

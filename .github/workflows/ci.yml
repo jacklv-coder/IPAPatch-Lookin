@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Test and validate
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Show toolchain versions
+        run: |
+          xcodebuild -version
+          xcrun swift --version
+
+      - name: Run Swift tests
+        # Foundation Process tests can leave Swift Testing's parallel runner
+        # waiting during shutdown on GitHub-hosted macOS runners.
+        run: xcrun swift test --no-parallel
+
+      - name: Validate shell scripts
+        run: sh -n ipapatch-lookin Tools/patch.sh Tools/verify_patch.sh
+
+      - name: Validate Xcode project
+        run: plutil -lint IPAPatch.xcodeproj/project.pbxproj

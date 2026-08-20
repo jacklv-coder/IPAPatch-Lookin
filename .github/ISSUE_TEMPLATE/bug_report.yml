@@ -1,0 +1,83 @@
+name: Bug report
+description: Report a reproducible IPAPatch-Lookin problem
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: checkboxes
+    id: authorization
+    attributes:
+      label: Responsible-use confirmation
+      options:
+        - label: I am testing an application I own or am authorized to inspect, and I will not attach an IPA, certificate, or provisioning profile.
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: IPAPatch-Lookin version
+      description: Run `./ipapatch-lookin --version`.
+      placeholder: "0.4.2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include macOS, Xcode, Mac architecture, destination type, and iOS version.
+      placeholder: |
+        macOS: 15.x
+        Xcode: 16.x
+        Mac: Apple silicon
+        Destination: physical iPhone / iPad or Simulator
+        iOS: 18.x
+    validations:
+      required: true
+
+  - type: textarea
+    id: ipa_metadata
+    attributes:
+      label: IPA metadata
+      description: Paste only the app name, platform, architectures, and cryptid from `./ipapatch-lookin inspect App.ipa`. Remove private paths and identifiers.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. Select ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and logs
+      description: Redact usernames, local paths, device identifiers, team IDs, bundle identifiers, tokens, and signing material. Do not upload an IPA.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: Reproducibility
+      options:
+        - Every time
+        - Sometimes
+        - Once
+    validations:
+      required: true
