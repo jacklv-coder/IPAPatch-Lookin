@@ -1,5 +1,9 @@
 # IPAPatch-Lookin
 
+[![CI](https://github.com/jacklv-coder/IPAPatch-Lookin/actions/workflows/ci.yml/badge.svg)](https://github.com/jacklv-coder/IPAPatch-Lookin/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/jacklv-coder/IPAPatch-Lookin?display_name=tag)](https://github.com/jacklv-coder/IPAPatch-Lookin/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 <p align="right">
   <a href="README.md">English</a> | <strong>简体中文</strong>
 </p>
@@ -37,7 +41,7 @@ IPA 与 Mach-O 校验、适配现代签名流程的清理、自动 App Group 重
 克隆仓库，并传入一个已解密的 IPA：
 
 ```sh
-git clone git@github.com:jacklv-coder/IPAPatch-Lookin.git
+git clone https://github.com/jacklv-coder/IPAPatch-Lookin.git
 cd IPAPatch-Lookin
 ./ipapatch-lookin ~/Downloads/YourApp.ipa
 ```
